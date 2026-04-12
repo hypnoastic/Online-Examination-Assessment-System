@@ -80,8 +80,12 @@ test("locked states explain why the student cannot start the exam", () => {
 
   assert.equal(upcoming.statusLabel, "Locked");
   assert.match(upcoming.helperText, /has not opened yet/i);
+  assert.equal(upcoming.action.disabled, false);
+  assert.equal(upcoming.action.href, "/student/exams/exam-upcoming/start");
   assert.equal(blocked.statusLabel, "Locked");
   assert.match(blocked.helperText, /locked by the examiner/i);
+  assert.equal(blocked.action.disabled, false);
+  assert.equal(blocked.action.href, "/student/exams/exam-blocked/start");
 });
 
 test("submitted and review-complete attempts collapse to Submitted in the list", () => {

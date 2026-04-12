@@ -3,8 +3,8 @@ import type { CSSProperties } from "react";
 import { AssignedExamList } from "../../../components/student/assigned-exam-list";
 import {
   buildAssignedExamListViewModel,
+  listStudentAssignedExamRecords,
   summarizeAssignedExamList,
-  type AssignedExamRecord,
 } from "../../../modules/attempts";
 
 const heroStyle: CSSProperties = {
@@ -69,82 +69,8 @@ const sectionTitleStyle: CSSProperties = {
   lineHeight: 1.2,
 };
 
-const assignedExamRecords: AssignedExamRecord[] = [
-  {
-    assignmentId: "assignment-dbms-midterm",
-    examId: "exam-dbms-midterm",
-    examTitle: "DBMS Midterm",
-    examCode: "DBMS-301",
-    durationMinutes: 90,
-    windowStartsAt: new Date("2026-04-14T09:00:00+05:30"),
-    windowEndsAt: new Date("2026-04-14T10:30:00+05:30"),
-    windowStatus: "OPEN",
-    isManuallyBlocked: false,
-    attempt: null,
-  },
-  {
-    assignmentId: "assignment-network-security",
-    examId: "exam-network-security",
-    examTitle: "Network Security Quiz",
-    examCode: "CNS-214",
-    durationMinutes: 60,
-    windowStartsAt: new Date("2026-04-13T11:00:00+05:30"),
-    windowEndsAt: new Date("2026-04-13T12:00:00+05:30"),
-    windowStatus: "OPEN",
-    isManuallyBlocked: false,
-    attempt: {
-      attemptId: "attempt-network-security-1",
-      status: "IN_PROGRESS",
-      startedAt: new Date("2026-04-13T11:08:00+05:30"),
-      expiresAt: new Date("2026-04-13T12:08:00+05:30"),
-      submittedAt: null,
-    },
-  },
-  {
-    assignmentId: "assignment-os-viva",
-    examId: "exam-os-viva",
-    examTitle: "Operating Systems Viva",
-    examCode: "OS-220",
-    durationMinutes: 45,
-    windowStartsAt: new Date("2026-04-18T09:00:00+05:30"),
-    windowEndsAt: new Date("2026-04-18T09:45:00+05:30"),
-    windowStatus: "UPCOMING",
-    isManuallyBlocked: false,
-    attempt: null,
-  },
-  {
-    assignmentId: "assignment-java-lab",
-    examId: "exam-java-lab",
-    examTitle: "Java Lab Assessment",
-    examCode: "JAVA-118",
-    durationMinutes: 75,
-    windowStartsAt: new Date("2026-04-15T14:00:00+05:30"),
-    windowEndsAt: new Date("2026-04-15T15:15:00+05:30"),
-    windowStatus: "OPEN",
-    isManuallyBlocked: true,
-    attempt: null,
-  },
-  {
-    assignmentId: "assignment-discrete",
-    examId: "exam-discrete",
-    examTitle: "Discrete Mathematics Practice Test",
-    examCode: "MTH-204",
-    durationMinutes: 60,
-    windowStartsAt: new Date("2026-04-10T08:00:00+05:30"),
-    windowEndsAt: new Date("2026-04-10T09:00:00+05:30"),
-    windowStatus: "CLOSED",
-    isManuallyBlocked: false,
-    attempt: {
-      attemptId: "attempt-discrete-1",
-      status: "SUBMITTED",
-      startedAt: new Date("2026-04-10T08:05:00+05:30"),
-      expiresAt: new Date("2026-04-10T09:05:00+05:30"),
-      submittedAt: new Date("2026-04-10T08:56:00+05:30"),
-    },
-  },
-];
-
 export default function StudentDashboardPage() {
+  const assignedExamRecords = listStudentAssignedExamRecords();
   const assignedExamItems = buildAssignedExamListViewModel(assignedExamRecords);
   const assignedExamSummary = summarizeAssignedExamList(assignedExamItems);
   const metrics = [

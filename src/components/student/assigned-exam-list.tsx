@@ -82,19 +82,66 @@ const getStatusStyle = (
 
 const getActionStyle = (
   item: AssignedExamListItemViewModel,
-): CSSProperties => ({
-  display: "inline-flex",
-  justifyContent: "center",
-  alignItems: "center",
-  minWidth: "120px",
-  padding: "12px 16px",
-  borderRadius: "14px",
-  textDecoration: "none",
-  fontWeight: 600,
-  background: item.action.disabled ? "rgba(148, 163, 184, 0.12)" : "#0f766e",
-  color: item.action.disabled ? "#64748b" : "#f8fafc",
-  pointerEvents: item.action.disabled ? "none" : "auto",
-});
+): CSSProperties => {
+  if (item.action.disabled) {
+    return {
+      display: "inline-flex",
+      justifyContent: "center",
+      alignItems: "center",
+      minWidth: "120px",
+      padding: "12px 16px",
+      borderRadius: "14px",
+      textDecoration: "none",
+      fontWeight: 600,
+      background: "rgba(148, 163, 184, 0.12)",
+      color: "#64748b",
+      pointerEvents: "none",
+    };
+  }
+
+  if (item.statusTone === "active") {
+    return {
+      display: "inline-flex",
+      justifyContent: "center",
+      alignItems: "center",
+      minWidth: "120px",
+      padding: "12px 16px",
+      borderRadius: "14px",
+      textDecoration: "none",
+      fontWeight: 600,
+      background: "#0f5f73",
+      color: "#f8fafc",
+    };
+  }
+
+  if (item.statusTone === "locked") {
+    return {
+      display: "inline-flex",
+      justifyContent: "center",
+      alignItems: "center",
+      minWidth: "120px",
+      padding: "12px 16px",
+      borderRadius: "14px",
+      textDecoration: "none",
+      fontWeight: 600,
+      background: "rgba(217, 119, 6, 0.14)",
+      color: "#b45309",
+    };
+  }
+
+  return {
+    display: "inline-flex",
+    justifyContent: "center",
+    alignItems: "center",
+    minWidth: "120px",
+    padding: "12px 16px",
+    borderRadius: "14px",
+    textDecoration: "none",
+    fontWeight: 600,
+    background: "#0f766e",
+    color: "#f8fafc",
+  };
+};
 
 export function AssignedExamList({ exams }: AssignedExamListProps) {
   if (exams.length === 0) {

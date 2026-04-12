@@ -81,7 +81,7 @@ const resolveStatusPresentation = (
       statusLabel: "Locked",
       statusTone: "locked",
       helperText: resolveLockedHelperText(record),
-      action: buildAction("Locked", null, true),
+      action: buildAction("Locked", `/student/exams/${record.examId}/start`, false),
     };
   }
 
