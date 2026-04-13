@@ -55,12 +55,13 @@ const pageStyle: CSSProperties = {
   display: "grid",
   gap: "24px",
   alignContent: "start",
+  width: "100%",
 };
 
 const cardStyle: CSSProperties = {
   display: "grid",
   gap: "18px",
-  padding: "24px",
+  padding: "clamp(18px, 3vw, 24px)",
   borderRadius: "26px",
   background: "#ffffff",
   border: "1px solid rgba(16, 35, 60, 0.08)",
@@ -84,11 +85,11 @@ const topBarStyle = (tone: "stable" | "warning" | "critical" | "expired"): CSSPr
 
   return {
     position: "sticky",
-    top: "16px",
+    top: "12px",
     zIndex: 20,
     display: "grid",
     gap: "18px",
-    padding: "22px 24px",
+    padding: "clamp(18px, 3vw, 24px)",
     borderRadius: "24px",
     background: "rgba(255, 255, 255, 0.94)",
     border: `1px solid ${borderColor}`,
@@ -168,7 +169,7 @@ const timerCardStyle = (
 
 const attemptLayoutStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
   gap: "20px",
   alignItems: "start",
 };
@@ -202,7 +203,7 @@ const heroStyle = (blocked: boolean): CSSProperties =>
 
 const metaGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
   gap: "16px",
 };
 
@@ -218,7 +219,7 @@ const metaCardStyle: CSSProperties = {
 const questionCardStyle: CSSProperties = {
   display: "grid",
   gap: "10px",
-  padding: "28px",
+  padding: "clamp(18px, 4vw, 28px)",
   borderRadius: "28px",
   background: "#ffffff",
   border: "1px solid rgba(16, 35, 60, 0.08)",
@@ -240,7 +241,7 @@ const modalCardStyle: CSSProperties = {
   width: "min(720px, 100%)",
   display: "grid",
   gap: "18px",
-  padding: "28px",
+  padding: "clamp(20px, 4vw, 28px)",
   borderRadius: "28px",
   background: "#ffffff",
   border: "1px solid rgba(16, 35, 60, 0.08)",
@@ -668,7 +669,11 @@ export default function StudentAttemptPage({ params }: StudentAttemptPageProps) 
     <div style={pageStyle}>
       {attemptSession === null ? (
         <>
-          <section style={heroStyle(true)}>
+          <section
+            style={heroStyle(true)}
+            role="status"
+            aria-live="polite"
+          >
             <span
               style={{
                 display: "inline-flex",
@@ -680,7 +685,9 @@ export default function StudentAttemptPage({ params }: StudentAttemptPageProps) 
                 fontWeight: 600,
               }}
             >
-              Session Blocked
+              {sessionEntry.blockReason === "ATTEMPT_NOT_ACTIVE"
+                ? "Finished Attempt"
+                : "Session Blocked"}
             </span>
 
             <div style={{ display: "grid", gap: "10px" }}>
@@ -695,8 +702,9 @@ export default function StudentAttemptPage({ params }: StudentAttemptPageProps) 
 
           <section style={cardStyle}>
             <p style={{ margin: 0, color: "#4b647a", lineHeight: 1.7 }}>
-              The attempt route rejected this request because the current session is not active. Return to the
-              student dashboard and use a valid Start or Continue path.
+              {sessionEntry.blockReason === "ATTEMPT_NOT_ACTIVE"
+                ? "This exam attempt is already finalized and cannot be reopened for editing. Return to the student dashboard and use the submitted or results surfaces instead of the live runtime."
+                : "The attempt route rejected this request because the current session is not active. Return to the student dashboard and use a valid Start or Continue path."}
             </p>
             <a
               href="/student"
@@ -744,6 +752,7 @@ export default function StudentAttemptPage({ params }: StudentAttemptPageProps) 
           );
           const submitBusy = isAttemptSubmissionBusy(submissionState);
           const submitFinalized = isAttemptFinalized(submissionState);
+          const controlsLocked = submissionState.phase !== "active";
           const autosaveIndicator = buildAttemptAutosaveIndicator(
             autosaveState.status,
             autosaveState.failureMessage,
@@ -761,7 +770,15 @@ export default function StudentAttemptPage({ params }: StudentAttemptPageProps) 
           if (submitFinalized) {
             return (
               <div style={attemptCanvasStyle}>
-                <section style={finalStateCardStyle(submissionPresentation.tone)}>
+                <section
+                  style={finalStateCardStyle(submissionPresentation.tone)}
+                  role="status"
+                  aria-live={
+                    submissionState.phase === "auto_submitted"
+                      ? "assertive"
+                      : "polite"
+                  }
+                >
                   <span
                     style={statusPillStyle(
                       "rgba(255, 255, 255, 0.16)",
@@ -1011,7 +1028,11 @@ export default function StudentAttemptPage({ params }: StudentAttemptPageProps) 
                     ) : null}
                   </div>
 
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "center" }}>
+                  <div
+                    style={{ display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "center" }}
+                    role="status"
+                    aria-live="polite"
+                  >
                     <div style={{ display: "grid", gap: "4px", maxWidth: "520px" }}>
                       <p style={{ margin: 0, color: "#4b647a", lineHeight: 1.6 }}>
                         {timer.helperText}
@@ -1034,9 +1055,10 @@ export default function StudentAttemptPage({ params }: StudentAttemptPageProps) 
                       onClick={() =>
                         setSubmissionState((state) =>
                           openAttemptSubmissionConfirmation(state),
-                        )
+                          )
                       }
                       disabled={submissionState.phase !== "active"}
+                      aria-label="Open submit confirmation"
                       style={{
                         padding: "12px 18px",
                         borderRadius: "14px",
@@ -1127,6 +1149,13 @@ export default function StudentAttemptPage({ params }: StudentAttemptPageProps) 
                                   ),
                             )
                           }
+                          disabled={controlsLocked}
+                          aria-pressed={currentDraft.markedForReview}
+                          aria-label={
+                            currentDraft.markedForReview
+                              ? `Remove question ${currentQuestion.questionOrder} from review`
+                              : `Mark question ${currentQuestion.questionOrder} for review`
+                          }
                           style={{
                             padding: "12px 16px",
                             borderRadius: "14px",
@@ -1134,9 +1163,9 @@ export default function StudentAttemptPage({ params }: StudentAttemptPageProps) 
                             background: currentDraft.markedForReview
                               ? "rgba(217, 119, 6, 0.14)"
                               : "rgba(255, 255, 255, 0.94)",
-                            color: "#b45309",
+                            color: controlsLocked ? "#cbd5e1" : "#b45309",
                             fontWeight: 700,
-                            cursor: "pointer",
+                            cursor: controlsLocked ? "not-allowed" : "pointer",
                           }}
                         >
                           {currentDraft.markedForReview
@@ -1177,6 +1206,9 @@ export default function StudentAttemptPage({ params }: StudentAttemptPageProps) 
                                           ),
                                     )
                                   }
+                                  disabled={controlsLocked}
+                                  aria-pressed={isSelected}
+                                  aria-label={`Select option ${option.label} for question ${currentQuestion.questionOrder}: ${option.text}`}
                                   style={{
                                     display: "grid",
                                     gridTemplateColumns: "auto 1fr",
@@ -1190,8 +1222,9 @@ export default function StudentAttemptPage({ params }: StudentAttemptPageProps) 
                                     border: isSelected
                                       ? "1px solid rgba(15, 118, 110, 0.28)"
                                       : "1px solid rgba(16, 35, 60, 0.08)",
-                                    cursor: "pointer",
+                                    cursor: controlsLocked ? "not-allowed" : "pointer",
                                     textAlign: "left",
+                                    opacity: controlsLocked ? 0.72 : 1,
                                   }}
                                 >
                                   <span
@@ -1239,6 +1272,9 @@ export default function StudentAttemptPage({ params }: StudentAttemptPageProps) 
                                           ),
                                     )
                                   }
+                                  disabled={controlsLocked}
+                                  aria-pressed={isSelected}
+                                  aria-label={`Toggle option ${option.label} for question ${currentQuestion.questionOrder}: ${option.text}`}
                                   style={{
                                     display: "grid",
                                     gridTemplateColumns: "auto 1fr",
@@ -1252,8 +1288,9 @@ export default function StudentAttemptPage({ params }: StudentAttemptPageProps) 
                                     border: isSelected
                                       ? "1px solid rgba(14, 116, 144, 0.24)"
                                       : "1px solid rgba(16, 35, 60, 0.08)",
-                                    cursor: "pointer",
+                                    cursor: controlsLocked ? "not-allowed" : "pointer",
                                     textAlign: "left",
+                                    opacity: controlsLocked ? 0.72 : 1,
                                   }}
                                 >
                                   <span
@@ -1291,9 +1328,11 @@ export default function StudentAttemptPage({ params }: StudentAttemptPageProps) 
                                       state,
                                       currentQuestion.examQuestionId,
                                       event.target.value,
-                                    ),
+                                  ),
                               )
                             }
+                            disabled={controlsLocked}
+                            aria-label={`Response for question ${currentQuestion.questionOrder}`}
                             rows={currentQuestion.type === "LONG_TEXT" ? 10 : 5}
                             placeholder={
                               currentQuestion.type === "LONG_TEXT"
@@ -1314,6 +1353,7 @@ export default function StudentAttemptPage({ params }: StudentAttemptPageProps) 
                               lineHeight: 1.7,
                               resize: "vertical",
                               font: "inherit",
+                              opacity: controlsLocked ? 0.72 : 1,
                             }}
                           />
                         )}
@@ -1346,22 +1386,25 @@ export default function StudentAttemptPage({ params }: StudentAttemptPageProps) 
                                     ),
                               )
                             }
-                            disabled={workspaceState.currentQuestionIndex === 0}
+                            disabled={
+                              controlsLocked || workspaceState.currentQuestionIndex === 0
+                            }
+                            aria-label={`Go to previous question from question ${currentQuestion.questionOrder}`}
                             style={{
                               padding: "12px 18px",
                               borderRadius: "14px",
                               border: "1px solid rgba(15, 118, 110, 0.18)",
                               background:
-                                workspaceState.currentQuestionIndex === 0
+                                controlsLocked || workspaceState.currentQuestionIndex === 0
                                   ? "rgba(148, 163, 184, 0.12)"
                                   : "#ffffff",
                               color:
-                                workspaceState.currentQuestionIndex === 0
+                                controlsLocked || workspaceState.currentQuestionIndex === 0
                                   ? "#94a3b8"
                                   : "#0f766e",
                               fontWeight: 700,
                               cursor:
-                                workspaceState.currentQuestionIndex === 0
+                                controlsLocked || workspaceState.currentQuestionIndex === 0
                                   ? "not-allowed"
                                   : "pointer",
                             }}
@@ -1381,25 +1424,30 @@ export default function StudentAttemptPage({ params }: StudentAttemptPageProps) 
                               )
                             }
                             disabled={
+                              controlsLocked ||
                               workspaceState.currentQuestionIndex ===
                               questionCount - 1
                             }
+                            aria-label={`Go to next question from question ${currentQuestion.questionOrder}`}
                             style={{
                               padding: "12px 18px",
                               borderRadius: "14px",
                               border: "none",
                               background:
+                                controlsLocked ||
                                 workspaceState.currentQuestionIndex ===
                                 questionCount - 1
                                   ? "rgba(148, 163, 184, 0.12)"
                                   : "#0f766e",
                               color:
+                                controlsLocked ||
                                 workspaceState.currentQuestionIndex ===
                                 questionCount - 1
                                   ? "#94a3b8"
                                   : "#f8fafc",
                               fontWeight: 700,
                               cursor:
+                                controlsLocked ||
                                 workspaceState.currentQuestionIndex ===
                                 questionCount - 1
                                   ? "not-allowed"
@@ -1442,10 +1490,13 @@ export default function StudentAttemptPage({ params }: StudentAttemptPageProps) 
                                   ),
                             )
                           }
+                          disabled={controlsLocked}
                           aria-current={item.isCurrent ? "step" : undefined}
+                          aria-label={`Go to question ${item.questionOrder}`}
                           style={{
                             ...getNavigatorChipStyle(item.tone),
-                            cursor: "pointer",
+                            cursor: controlsLocked ? "not-allowed" : "pointer",
+                            opacity: controlsLocked ? 0.72 : 1,
                           }}
                         >
                           {item.questionOrder}
@@ -1469,6 +1520,8 @@ export default function StudentAttemptPage({ params }: StudentAttemptPageProps) 
                                   ),
                             )
                           }
+                          disabled={controlsLocked}
+                          aria-label={`Open question ${item.questionOrder} from the navigator`}
                           style={{
                             display: "grid",
                             gap: "4px",
@@ -1481,7 +1534,8 @@ export default function StudentAttemptPage({ params }: StudentAttemptPageProps) 
                               ? "rgba(15, 118, 110, 0.08)"
                               : "#ffffff",
                             textAlign: "left",
-                            cursor: "pointer",
+                            cursor: controlsLocked ? "not-allowed" : "pointer",
+                            opacity: controlsLocked ? 0.72 : 1,
                           }}
                         >
                           <span style={{ fontWeight: 700, color: "#10233c" }}>
@@ -1555,6 +1609,7 @@ export default function StudentAttemptPage({ params }: StudentAttemptPageProps) 
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="attempt-submit-modal-title"
+                    aria-describedby="attempt-submit-modal-detail"
                     style={modalCardStyle}
                   >
                     <div style={{ display: "grid", gap: "10px" }}>
@@ -1572,7 +1627,10 @@ export default function StudentAttemptPage({ params }: StudentAttemptPageProps) 
                       >
                         {submissionPresentation.title}
                       </h3>
-                      <p style={{ margin: 0, color: "#4b647a", lineHeight: 1.7 }}>
+                      <p
+                        id="attempt-submit-modal-detail"
+                        style={{ margin: 0, color: "#4b647a", lineHeight: 1.7 }}
+                      >
                         {submissionPresentation.detail}
                       </p>
                     </div>
@@ -1681,6 +1739,7 @@ export default function StudentAttemptPage({ params }: StudentAttemptPageProps) 
                           )
                         }
                         disabled={submitBusy}
+                        aria-label="Close submit confirmation and continue reviewing"
                         style={{
                           padding: "12px 18px",
                           borderRadius: "14px",
@@ -1702,6 +1761,7 @@ export default function StudentAttemptPage({ params }: StudentAttemptPageProps) 
                           )
                         }
                         disabled={submitBusy}
+                        aria-label="Confirm final submit"
                         style={{
                           padding: "12px 18px",
                           borderRadius: "14px",

@@ -151,6 +151,40 @@ const buildSessionBlockedResult = (
   session: null,
 });
 
+const buildClosedAttemptSessionBlockedResult = (
+  status: StudentAttemptStatus,
+): AttemptSessionLoadResult => {
+  if (status === "SUBMITTED") {
+    return buildSessionBlockedResult(
+      "ATTEMPT_NOT_ACTIVE",
+      "Attempt already submitted",
+      "This attempt has already been submitted. Finished attempts are read-only and the student cannot reopen the live exam screen to edit answers again.",
+    );
+  }
+
+  if (status === "AUTO_SUBMITTED") {
+    return buildSessionBlockedResult(
+      "ATTEMPT_NOT_ACTIVE",
+      "Attempt closed after timeout",
+      "The timer expired and this attempt was auto-submitted. The live attempt route is locked once timeout finalization completes.",
+    );
+  }
+
+  if (status === "UNDER_REVIEW") {
+    return buildSessionBlockedResult(
+      "ATTEMPT_NOT_ACTIVE",
+      "Attempt is under review",
+      "This attempt has already been finalized and is now under review. The student can no longer reopen the attempt to change responses.",
+    );
+  }
+
+  return buildSessionBlockedResult(
+    "ATTEMPT_NOT_ACTIVE",
+    "Attempt already evaluated",
+    "Evaluation is complete for this attempt. Use the student dashboard or result surfaces instead of reopening the finished exam route.",
+  );
+};
+
 export const resolveAttemptSessionEntry = (
   records: readonly AttemptBootstrapRecord[],
   attemptId: string,
@@ -174,10 +208,8 @@ export const resolveAttemptSessionEntry = (
 
   if (matchingRecord.attempt?.attemptId === attemptId) {
     if (matchingRecord.attempt.status !== "IN_PROGRESS") {
-      return buildSessionBlockedResult(
-        "ATTEMPT_NOT_ACTIVE",
-        "Attempt is no longer active",
-        "This attempt has already been finalized, so the live question session cannot be reopened.",
+      return buildClosedAttemptSessionBlockedResult(
+        matchingRecord.attempt.status,
       );
     }
 

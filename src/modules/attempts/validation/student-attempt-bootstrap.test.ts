@@ -148,6 +148,23 @@ test("attempt session entry loads question payload for both fresh bootstrap and 
 });
 
 test("inactive or unknown attempt routes return blocked session messages", () => {
+  const submittedLoad = resolveAttemptSessionEntry(
+    [
+      {
+        ...baseRecord,
+        attempt: {
+          attemptId: "attempt-dbms-submitted",
+          status: "SUBMITTED",
+          startedAt: new Date("2026-04-12T08:00:00.000Z"),
+          expiresAt: new Date("2026-04-12T09:00:00.000Z"),
+          submittedAt: new Date("2026-04-12T08:50:00.000Z"),
+        },
+      },
+    ],
+    "attempt-dbms-submitted",
+    fixedNow,
+  );
+
   const closedLoad = resolveAttemptSessionEntry(
     [
       {
@@ -167,8 +184,14 @@ test("inactive or unknown attempt routes return blocked session messages", () =>
 
   const missingLoad = resolveAttemptSessionEntry([], "attempt-missing", fixedNow);
 
+  assert.equal(submittedLoad.status, "BLOCKED");
+  assert.equal(submittedLoad.blockReason, "ATTEMPT_NOT_ACTIVE");
+  assert.equal(submittedLoad.title, "Attempt already submitted");
+  assert.match(submittedLoad.message, /cannot reopen the live exam screen/i);
   assert.equal(closedLoad.status, "BLOCKED");
   assert.equal(closedLoad.blockReason, "ATTEMPT_NOT_ACTIVE");
+  assert.equal(closedLoad.title, "Attempt already evaluated");
+  assert.match(closedLoad.message, /result surfaces/i);
   assert.equal(missingLoad.status, "BLOCKED");
   assert.equal(missingLoad.blockReason, "ATTEMPT_NOT_FOUND");
 });
