@@ -15,10 +15,10 @@ const pageStyle: CSSProperties = {
 
 const heroStyle: CSSProperties = {
   display: "grid",
-  gap: "18px",
+  gap: "20px",
   padding: "28px",
   borderRadius: "28px",
-  background: "linear-gradient(135deg, #18283f 0%, #1e4b73 54%, #256d85 100%)",
+  background: "linear-gradient(135deg, #102a43 0%, #1f4f82 58%, #0f766e 100%)",
   color: "#f8fbfd",
   boxShadow: "0 24px 48px rgba(16, 35, 60, 0.14)",
 };

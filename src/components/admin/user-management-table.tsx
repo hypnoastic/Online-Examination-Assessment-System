@@ -604,6 +604,7 @@ export function UserManagementTable({ initialUsers, initialFilters }: UserManage
                       </span>
                       <div style={rowActionStyle}>
                         <select
+                          aria-label={`Change role for ${user.name}`}
                           value={roleDrafts[user.id] ?? user.role}
                           onChange={(event) =>
                             setRoleDrafts((current) => ({
@@ -645,6 +646,7 @@ export function UserManagementTable({ initialUsers, initialFilters }: UserManage
                       </span>
                       <div style={rowActionStyle}>
                         <select
+                          aria-label={`Change status for ${user.name}`}
                           value={statusDrafts[user.id] ?? user.status}
                           onChange={(event) =>
                             setStatusDrafts((current) => ({

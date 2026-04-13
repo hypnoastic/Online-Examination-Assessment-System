@@ -103,14 +103,7 @@ const summaryPanelStyle: CSSProperties = {
   border: "1px solid rgba(16, 35, 60, 0.08)",
 };
 
-const summaryPanelStyle: CSSProperties = {
-  display: "grid",
-  gap: "14px",
-  padding: "22px",
-  borderRadius: "22px",
-  background: "rgba(245, 248, 252, 0.96)",
-  border: "1px solid rgba(16, 35, 60, 0.08)",
-};
+
 
 const sectionTitleStyle: CSSProperties = {
   fontSize: "1.2rem",

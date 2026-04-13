@@ -106,13 +106,7 @@ const headerCellStyle: CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-const rowButtonStyle = (isActive: boolean): CSSProperties => ({
-  width: "100%",
-  border: "none",
-  padding: 0,
-  background: isActive ? "rgba(15, 118, 110, 0.06)" : "transparent",
-  cursor: "pointer",
-});
+
 
 const cellStyle: CSSProperties = {
   padding: "14px 16px",
@@ -339,37 +333,40 @@ export function AuditLogWorkspace({ records }: AuditLogWorkspaceProps) {
                 </thead>
                 <tbody>
                   {filteredRecords.map((record) => (
-                    <tr key={record.id}>
-                      <td colSpan={4} style={{ padding: 0 }}>
-                        <button
-                          type="button"
-                          style={rowButtonStyle(record.id === selectedRecord?.id)}
-                          onClick={() => setSelectedId(record.id)}
-                        >
-                          <table style={tableStyle}>
-                            <tbody>
-                              <tr>
-                                <td style={cellStyle}>
-                                  <p style={{ margin: 0, fontWeight: 700, color: "#10233c" }}>{record.actor}</p>
-                                </td>
-                                <td style={cellStyle}>
-                                  <span style={actionBadgeStyle}>{describeAdminAuditAction(record.action)}</span>
-                                </td>
-                                <td style={cellStyle}>
-                                  <div style={{ display: "grid", gap: "8px" }}>
-                                    <span style={entityBadgeStyle(record.entityType)}>{record.entityType}</span>
-                                    <p style={{ margin: 0, color: "#10233c", lineHeight: 1.5 }}>{record.entity}</p>
-                                  </div>
-                                </td>
-                                <td style={cellStyle}>
-                                  <p style={{ margin: 0, color: "#334155", whiteSpace: "nowrap" }}>
-                                    {formatDateTime(record.occurredAt)}
-                                  </p>
-                                </td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </button>
+                    <tr
+                      key={record.id}
+                      onClick={() => setSelectedId(record.id)}
+                      tabIndex={0}
+                      role="button"
+                      aria-pressed={record.id === selectedRecord?.id}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setSelectedId(record.id);
+                        }
+                      }}
+                      style={{
+                        cursor: "pointer",
+                        background: record.id === selectedRecord?.id ? "rgba(15, 118, 110, 0.06)" : "transparent",
+                        transition: "background 0.2s ease"
+                      }}
+                    >
+                      <td style={cellStyle}>
+                        <p style={{ margin: 0, fontWeight: 700, color: "#10233c" }}>{record.actor}</p>
+                      </td>
+                      <td style={cellStyle}>
+                        <span style={actionBadgeStyle}>{describeAdminAuditAction(record.action)}</span>
+                      </td>
+                      <td style={cellStyle}>
+                        <div style={{ display: "grid", gap: "8px" }}>
+                          <span style={entityBadgeStyle(record.entityType)}>{record.entityType}</span>
+                          <p style={{ margin: 0, color: "#10233c", lineHeight: 1.5 }}>{record.entity}</p>
+                        </div>
+                      </td>
+                      <td style={cellStyle}>
+                        <p style={{ margin: 0, color: "#334155", whiteSpace: "nowrap" }}>
+                          {formatDateTime(record.occurredAt)}
+                        </p>
                       </td>
                     </tr>
                   ))}
