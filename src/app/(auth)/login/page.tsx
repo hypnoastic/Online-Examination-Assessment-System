@@ -1,7 +1,10 @@
+import { redirect } from "next/navigation";
 import Link from "next/link";
 
+import { auth } from "@/auth";
 import { SurfaceCard } from "@/components/ui/shell-primitives";
 import { routes } from "@/lib/routes";
+import { LoginForm } from "@/modules/auth/components/login-form";
 
 const supportCards = [
   {
@@ -14,56 +17,32 @@ const supportCards = [
   },
 ] as const;
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const session = await auth();
+
+  if (session?.user) {
+    redirect(routes.dashboard);
+  }
+
   return (
     <SurfaceCard className="login-panel">
       <div className="login-panel__header">
         <p className="surface-card__eyebrow">Sign in</p>
         <h2>Access the examination workspace</h2>
         <p>
-          Use institutional credentials for your assigned role. Authentication
-          logic is added in the next step, so this form remains presentational
-          in this commit.
+          Use institutional credentials for your assigned role. Credentials
+          auth, session creation, and logout are now wired, while route guards
+          and role redirects land in the next step.
         </p>
       </div>
 
-      <form className="login-form">
-        <div className="form-field">
-          <label htmlFor="email">Institutional email</label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            placeholder="faculty@college.edu"
-            autoComplete="email"
-          />
-        </div>
+      <LoginForm />
 
-        <div className="form-field">
-          <label htmlFor="password">Password</label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            placeholder="Enter your password"
-            autoComplete="current-password"
-          />
-        </div>
-
-        <div className="login-form__meta">
-          <span>Static shell for Step 3</span>
-          <span>Session wiring arrives in Step 4</span>
-        </div>
-
-        <div className="login-form__actions">
-          <button className="button-link button-link--primary" type="button">
-            Sign in
-          </button>
-          <Link className="button-link button-link--secondary" href={routes.home}>
-            Back to landing
-          </Link>
-        </div>
-      </form>
+      <div className="login-form__actions">
+        <Link className="button-link button-link--secondary" href={routes.home}>
+          Back to landing
+        </Link>
+      </div>
 
       <div className="login-support-grid">
         {supportCards.map((card) => (
