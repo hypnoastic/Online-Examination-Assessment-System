@@ -18,7 +18,7 @@ const adminNavigation = [
   {
     href: "#user-operations",
     label: "User Operations",
-    description: "Structural slot for user management workflows",
+    description: "User listing, search, and filter workflows",
   },
   {
     href: "#audit-activity",

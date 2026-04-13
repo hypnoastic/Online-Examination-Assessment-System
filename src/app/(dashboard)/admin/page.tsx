@@ -195,8 +195,8 @@ export default function AdminDashboardPage({ searchParams }: AdminDashboardPageP
           </h2>
           <p style={{ margin: 0, maxWidth: "780px", lineHeight: 1.7, color: "rgba(248, 251, 253, 0.88)" }}>
             This dashboard establishes the operational shell for user management, audit visibility, and
-            reporting work. Step 1 keeps the page structural so later prompts can layer in real listing,
-            filtering, and analytics detail without changing the navigation frame.
+            reporting work. The user list now supports name or email search, role filtering, status filtering,
+            and a readable empty state without leaving the shared admin route.
           </p>
         </div>
       </section>
