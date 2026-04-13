@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { PageHeader, PageToolbar } from "@/components/layout/page-header";
 import type { DashboardNavItem } from "@/lib/dashboard-navigation";
 import { SurfaceCard } from "@/components/ui/shell-primitives";
 import type { AppRole } from "@/modules/auth/types";
@@ -52,27 +53,29 @@ export function RoleDashboardEntry({
       ) : null}
 
       <SurfaceCard className="role-dashboard-entry__hero" tone="contrast">
-        <div className="role-dashboard-entry__header">
-          <p className="surface-card__eyebrow">{`${role} workspace`}</p>
-          <h2>{title}</h2>
-          <p>{description}</p>
-        </div>
-
-        <div className="role-dashboard-entry__actions">
-          {actions.map((action) => (
-            <Link
-              key={action.href}
-              className={`button-link ${
-                action.variant === "secondary"
-                  ? "button-link--secondary"
-                  : "button-link--primary"
-              }`}
-              href={action.href}
-            >
-              {action.label}
-            </Link>
-          ))}
-        </div>
+        <PageHeader
+          actions={
+            <PageToolbar align="end">
+              {actions.map((action) => (
+                <Link
+                  key={action.href}
+                  className={`button-link ${
+                    action.variant === "secondary"
+                      ? "button-link--secondary"
+                      : "button-link--primary"
+                  }`}
+                  href={action.href}
+                >
+                  {action.label}
+                </Link>
+              ))}
+            </PageToolbar>
+          }
+          description={description}
+          eyebrow={`${role} workspace`}
+          title={title}
+          tone="inverse"
+        />
       </SurfaceCard>
 
       <div className="role-dashboard-entry__metrics">

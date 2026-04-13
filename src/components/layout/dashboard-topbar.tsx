@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Fragment } from "react";
 import { usePathname } from "next/navigation";
 
+import { PageHeader } from "@/components/layout/page-header";
 import { getDashboardPageContext } from "@/lib/dashboard-navigation";
 import type { AppRole } from "@/modules/auth/types";
 
@@ -43,11 +44,12 @@ export function DashboardTopbar({ role }: DashboardTopbarProps) {
         })}
       </nav>
 
-      <div className="dashboard-topbar__copy">
-        <p className="shell-eyebrow">{`${context.roleLabel} / ${context.activeItem.sectionLabel}`}</p>
-        <h1>{context.title}</h1>
-        <p>{context.description}</p>
-      </div>
+      <PageHeader
+        description={context.description}
+        eyebrow={`${context.roleLabel} / ${context.activeItem.sectionLabel}`}
+        title={context.title}
+        titleAs="h1"
+      />
     </div>
   );
 }
