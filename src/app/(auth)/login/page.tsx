@@ -6,6 +6,7 @@ import { getDashboardRouteForRole } from "@/lib/auth/rbac";
 import { SurfaceCard } from "@/components/ui/shell-primitives";
 import { routes } from "@/lib/routes";
 import { LoginForm } from "@/modules/auth/components/login-form";
+import { mockUsers, sharedDemoPassword } from "@/modules/auth/mock-users";
 
 const supportCards = [
   {
@@ -46,6 +47,17 @@ export default async function LoginPage() {
       </div>
 
       <div className="login-support-grid">
+        <div className="login-support-card">
+          <h3>Demo credentials</h3>
+          <p>Password: {sharedDemoPassword}</p>
+          <ul className="login-support-card__list">
+            {mockUsers.map((user) => (
+              <li key={user.id}>
+                <strong>{user.role}</strong>: {user.email}
+              </li>
+            ))}
+          </ul>
+        </div>
         {supportCards.map((card) => (
           <div key={card.title} className="login-support-card">
             <h3>{card.title}</h3>

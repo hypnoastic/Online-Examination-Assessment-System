@@ -1,7 +1,9 @@
 import type { AuthUserRecord } from "@/modules/auth/types";
 
+export const sharedDemoPassword = "OeasDemo@123";
+
 const sharedDemoPasswordHash =
-  "$2b$10$rIFYh6g1J9yf6vl3ddSeeuGhjM99EoQ/8WEHxQpIq3GXjKuuYgwHS";
+  "$2b$10$vrDadlT5U74biZ9Dk.xGi.Hm/uBdRtU1mjTmoYuGhZdtonSPC2Awm";
 
 export const mockUsers: AuthUserRecord[] = [
   {

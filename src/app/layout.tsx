@@ -1,31 +1,8 @@
 import type { Metadata } from "next";
-import {
-  IBM_Plex_Mono,
-  IBM_Plex_Sans,
-  Manrope,
-} from "next/font/google";
 import type { ReactNode } from "react";
 
 import "./tokens.css";
 import "./globals.css";
-
-const headingFont = Manrope({
-  subsets: ["latin"],
-  variable: "--font-heading-family",
-  weight: ["600", "700", "800"],
-});
-
-const bodyFont = IBM_Plex_Sans({
-  subsets: ["latin"],
-  variable: "--font-body-family",
-  weight: ["400", "500", "600"],
-});
-
-const monoFont = IBM_Plex_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono-family",
-  weight: ["500", "600"],
-});
 
 export const metadata: Metadata = {
   title: "Online Examination Assessment System",
@@ -40,9 +17,7 @@ type RootLayoutProps = {
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en">
-      <body
-        className={`${headingFont.variable} ${bodyFont.variable} ${monoFont.variable}`}
-      >
+      <body>
         <a className="skip-link" href="#app-main-content">
           Skip to main content
         </a>
