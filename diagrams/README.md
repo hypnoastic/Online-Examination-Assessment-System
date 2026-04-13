@@ -1,36 +1,35 @@
-# Diagram Source Pack
+# Diagram Asset Pack
 
 ## Purpose
 
-This folder contains markdown source definitions for the system-design and UML diagrams required by the Online Examination Assessment System project.
+This folder contains the rendered diagram image assets for the system-design and UML diagrams required by the Online Examination Assessment System project.
 
 These files are meant to do two jobs:
 
-- preserve the architectural truth of the system in a text-reviewable format
-- make it easy for a human teammate to recreate polished visual diagrams later in Figma or another diagramming tool
+- preserve the current approved visuals for review and submission
+- give teammates a single place to find the latest exported diagrams
 
 ## Mandatory Diagrams
 
-- `01-use-case-diagram.md`
-- `02-class-diagram.md`
-- `03-sequence-diagram-student-attempt.md`
-- `04-sequence-diagram-exam-creation.md`
-- `05-er-diagram.md`
-- `06-component-diagram.md`
-- `07-activity-diagram-exam-flow.md`
-- `08-deployment-diagram.md`
+- `01-use-case-diagram.png`
+- `02-class-diagram.png`
+- `03-sequence-diagram-student-attempt.png`
+- `04-sequence-diagram-exam-creation.png`
+- `05-er-diagram.png`
+- `07-activity-diagram-exam-flow.png`
 
 ## Optional But Recommended Later
 
 - state diagram for exam lifecycle
 - state diagram for attempt and result lifecycle
 - package or module diagram for the codebase
+- component diagram for the codebase
+- deployment diagram for the runtime topology
 - wireflow for the student exam-taking experience
 
-## How To Recreate In Figma Later
+## Diagram Maintenance
 
-1. Read the diagram file completely before drawing.
-2. Preserve the listed actors, entities, components, and relationships exactly.
-3. Use the visual grouping guidance in each file to separate roles, services, domain objects, and infrastructure.
-4. Add layout polish in Figma only after the semantic structure is correct.
-5. Keep the markdown file as the source of truth. If the visual diagram changes meaningfully, update the markdown too.
+1. Keep exported filenames aligned with the numbered scheme in this folder.
+2. Replace the existing PNG when a diagram is revised instead of adding duplicate variants.
+3. Preserve the diagram meaning when refreshing layout or styling.
+4. If the visuals change meaningfully, update any linked team docs that reference the image.

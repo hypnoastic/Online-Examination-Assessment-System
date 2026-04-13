@@ -218,6 +218,8 @@ export const updateAdminUserRole = (
     };
   }
 
+  const nextRole: AdminUserRole = input.role;
+
   const target = records.find((record) => record.id === input.userId);
 
   if (!target) {
@@ -232,7 +234,7 @@ export const updateAdminUserRole = (
   return {
     ok: true,
     records: sortUsers(
-      records.map((record) =>
+      records.map<AdminUserRecord>((record) =>
         record.id === input.userId
           ? {
               ...record,
@@ -257,6 +259,8 @@ export const updateAdminUserStatus = (
     };
   }
 
+  const nextStatus: AdminUserStatus = input.status;
+
   const target = records.find((record) => record.id === input.userId);
 
   if (!target) {
@@ -271,7 +275,7 @@ export const updateAdminUserStatus = (
   return {
     ok: true,
     records: sortUsers(
-      records.map((record) =>
+      records.map<AdminUserRecord>((record) =>
         record.id === input.userId
           ? {
               ...record,
