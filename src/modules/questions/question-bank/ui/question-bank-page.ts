@@ -17,6 +17,7 @@ import {
   getQuestionTypeLabel,
   renderQuestionBankChip,
 } from "./question-bank-ui.shared.js";
+import { renderQuestionBankShell } from "./question-bank-shell.js";
 
 const renderQuestionBankPreview = (entry: QuestionBankEntry | null) => {
   if (!entry) {
@@ -89,77 +90,55 @@ export const renderQuestionBankPage = ({
   );
   const emptyStateCopy = getQuestionBankEmptyStateCopy(filters);
 
-  return `
-    <div class="question-bank-shell">
-      <aside class="question-bank-shell__sidebar" aria-label="Examiner navigation">
-        <div class="question-bank-brand">
-          <span class="question-bank-brand__mark">OE</span>
-          <div>
-            <p>Online Examination</p>
-            <p>Assessment System</p>
-          </div>
+  return renderQuestionBankShell({
+    eyebrow: "Examiner Authoring",
+    title: "Question Bank",
+    description:
+      "Search reusable assessment items, filter them by taxonomy, and scan row metadata before reusing them in an exam draft.",
+    headerActions: `
+      <a class="question-bank-button" href="./create.html">Create question</a>
+    `,
+    mainContent: `
+      ${renderQuestionBankFilterToolbar({ filters, summary, topics })}
+      <section class="question-bank-layout" aria-label="Question bank listing">
+        <div class="question-bank-panel question-bank-table-panel">
+          ${
+            visibleEntries.length === 0
+              ? renderQuestionBankEmptyState({
+                  copy: emptyStateCopy,
+                  hasActiveFilters: summary.hasActiveFilters,
+                })
+              : `
+                  <div class="question-bank-table__scroll">
+                    <table class="question-bank-table">
+                      <thead>
+                        <tr>
+                          <th scope="col">Question</th>
+                          <th scope="col">Type</th>
+                          <th scope="col">Difficulty</th>
+                          <th scope="col">Topic</th>
+                          <th scope="col">Usage</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${visibleEntries
+                          .map((entry) =>
+                            renderQuestionBankRow({
+                              entry,
+                              isSelected: entry.id === selectedEntry?.id,
+                            }),
+                          )
+                          .join("")}
+                      </tbody>
+                    </table>
+                  </div>
+                `
+          }
         </div>
-        <nav class="question-bank-nav">
-          <a href="#" class="question-bank-nav__item">Dashboard</a>
-          <a href="#" class="question-bank-nav__item">Exams</a>
-          <a href="#" class="question-bank-nav__item is-active" aria-current="page">Question Bank</a>
-          <a href="#" class="question-bank-nav__item">Review Queue</a>
-          <a href="#" class="question-bank-nav__item">Analytics</a>
-        </nav>
-        <div class="question-bank-sidebar__footer">
-          <p>Examiner workspace</p>
-          <p>Question reuse, taxonomy, and exam authoring stay aligned here.</p>
-        </div>
-      </aside>
-      <main class="question-bank-shell__main">
-        <header class="question-bank-page-header">
-          <p class="question-bank-page-header__eyebrow">Examiner Authoring</p>
-          <h1>Question Bank</h1>
-          <p>
-            Search reusable assessment items, filter them by taxonomy, and scan row metadata before reusing them in an exam draft.
-          </p>
-        </header>
-        ${renderQuestionBankFilterToolbar({ filters, summary, topics })}
-        <section class="question-bank-layout" aria-label="Question bank listing">
-          <div class="question-bank-panel question-bank-table-panel">
-            ${
-              visibleEntries.length === 0
-                ? renderQuestionBankEmptyState({
-                    copy: emptyStateCopy,
-                    hasActiveFilters: summary.hasActiveFilters,
-                  })
-                : `
-                    <div class="question-bank-table__scroll">
-                      <table class="question-bank-table">
-                        <thead>
-                          <tr>
-                            <th scope="col">Question</th>
-                            <th scope="col">Type</th>
-                            <th scope="col">Difficulty</th>
-                            <th scope="col">Topic</th>
-                            <th scope="col">Usage</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          ${visibleEntries
-                            .map((entry) =>
-                              renderQuestionBankRow({
-                                entry,
-                                isSelected: entry.id === selectedEntry?.id,
-                              }),
-                            )
-                            .join("")}
-                        </tbody>
-                      </table>
-                    </div>
-                  `
-            }
-          </div>
-          <aside class="question-bank-panel question-bank-preview" aria-label="Question preview">
-            ${renderQuestionBankPreview(selectedEntry)}
-          </aside>
-        </section>
-      </main>
-    </div>
-  `;
+        <aside class="question-bank-panel question-bank-preview" aria-label="Question preview">
+          ${renderQuestionBankPreview(selectedEntry)}
+        </aside>
+      </section>
+    `,
+  });
 };

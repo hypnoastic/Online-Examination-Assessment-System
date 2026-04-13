@@ -14,5 +14,8 @@
     "types": ["node"],
     "resolveJsonModule": true
   },
-  "include": ["src/**/*.ts"]
+  "include": [
+    "src/browser/question-bank/**/*.ts",
+    "src/modules/questions/**/*.ts"
+  ]
 }

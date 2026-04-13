@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json --pretty false",
-    "test": "npm run build && node --test dist/modules/questions/validation/question.schemas.test.js dist/modules/questions/question-bank/question-bank-listing.test.js"
+    "build": "tsc -p tsconfig.json --pretty false && node scripts/build-browser.mjs",
+    "test": "npm run build && node --test dist/modules/questions/validation/question.schemas.test.js dist/modules/questions/question-bank/question-bank-listing.test.js dist/modules/questions/create-question/objective-question-form.test.js"
   }
 }
