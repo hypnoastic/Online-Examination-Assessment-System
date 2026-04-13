@@ -1,15 +1,20 @@
 import {
   DRAFT_EXAM_AUTHORING_SCENARIOS,
+  EXAM_ASSIGNMENT_CANDIDATES,
   addDraftExamSection,
   addQuestionToDraftExamSection,
+  addStudentAssignmentToDraftExam,
   createDraftExamAuthoringDraft,
   createDraftExamSummary,
   createEmptyDraftExamFormErrors,
+  findExamAssignmentCandidate,
   moveDraftExamQuestion,
   moveDraftExamSection,
   normalizeDraftExamAuthoringDraft,
+  publishDraftExamAuthoringDraft,
   removeDraftExamSection,
   removeQuestionFromDraftExamSection,
+  removeStudentAssignmentFromDraftExam,
   type DraftExamAuthoringDraft,
   type DraftExamSummary,
   updateDraftExamField,
@@ -28,7 +33,10 @@ if (!root) {
 
 const query = new URLSearchParams(window.location.search);
 
-type DraftExamFieldKey = keyof Omit<DraftExamAuthoringDraft, "sections">;
+type DraftExamFieldKey = keyof Omit<
+  DraftExamAuthoringDraft,
+  "sections" | "assignments" | "status"
+>;
 type FocusableField =
   | HTMLInputElement
   | HTMLTextAreaElement
@@ -182,6 +190,7 @@ const restoreFocus = (focusSnapshot: ReturnType<typeof captureFocus>) => {
 const render = (focusSnapshot: ReturnType<typeof captureFocus> = null) => {
   root.innerHTML = renderCreateDraftExamPage({
     activeSectionId: state.activeSectionId,
+    assignmentCandidates: EXAM_ASSIGNMENT_CANDIDATES,
     draft: state.draft,
     errors: state.errors,
     lastSavedExam: state.lastSavedExam,
@@ -213,7 +222,7 @@ const submitDraft = () => {
       tone: "error",
       title: "Draft exam blocked",
       detail:
-        "Fix the highlighted metadata, section, and question mapping issues before this draft exam can be saved.",
+        "Fix the highlighted metadata, assignment, or mapped-question issues before this exam can be saved.",
     };
     render();
     return;
@@ -229,9 +238,41 @@ const submitDraft = () => {
   state.lastSavedExam = createDraftExamSummary(result.data);
   state.status = {
     tone: "success",
-    title: "Draft exam saved",
+    title: state.draft.status === "SCHEDULED" ? "Scheduled exam saved" : "Draft exam saved",
     detail:
-      "The metadata, sections, and mapped question snapshots passed validation and the draft builder is ready for later exam-authoring steps.",
+      "Metadata, mapped question snapshots, and student assignments passed validation and were stored in the exam workspace.",
+  };
+  render();
+};
+
+const publishExam = () => {
+  const result = publishDraftExamAuthoringDraft(state.draft);
+
+  if (!result.success) {
+    state.errors = result.errors;
+    state.status = {
+      tone: "error",
+      title: "Publish blocked",
+      detail:
+        "The exam cannot move to scheduled availability until the readiness checks and validation issues are resolved.",
+    };
+    render();
+    return;
+  }
+
+  state.errors = createEmptyDraftExamFormErrors();
+  state.draft = normalizeDraftExamAuthoringDraft(state.draft, result.data);
+  state.baseDraft = structuredClone(state.draft);
+  state.activeSectionId = getSafeActiveSectionId(
+    state.draft,
+    state.activeSectionId,
+  );
+  state.lastSavedExam = createDraftExamSummary(result.data);
+  state.status = {
+    tone: "success",
+    title: "Exam scheduled",
+    detail:
+      "Questions, schedule, and assignments passed the publish gate, so the exam is now marked as scheduled.",
   };
   render();
 };
@@ -400,6 +441,31 @@ root.addEventListener("click", (event) => {
       resetFeedback();
       render();
       return;
+    case "assign-student": {
+      const studentId = actionTrigger.dataset.studentId ?? null;
+      const candidate = studentId ? findExamAssignmentCandidate(studentId) : null;
+
+      if (!candidate) {
+        return;
+      }
+
+      syncStateDraft(addStudentAssignmentToDraftExam(state.draft, candidate));
+      resetFeedback();
+      render();
+      return;
+    }
+    case "remove-assignment": {
+      const studentId = actionTrigger.dataset.studentId ?? null;
+
+      if (!studentId) {
+        return;
+      }
+
+      syncStateDraft(removeStudentAssignmentFromDraftExam(state.draft, studentId));
+      resetFeedback();
+      render();
+      return;
+    }
     case "reset-draft":
       state.draft = structuredClone(state.baseDraft);
       state.activeSectionId = getInitialActiveSectionId(state.baseDraft);
@@ -410,6 +476,9 @@ root.addEventListener("click", (event) => {
     case "submit-draft":
       submitDraft();
       return;
+    case "publish-exam":
+      publishExam();
+      return;
     default:
       return;
   }
@@ -419,4 +488,8 @@ render();
 
 if (query.get("submit") === "1") {
   submitDraft();
+}
+
+if (query.get("publish") === "1") {
+  publishExam();
 }

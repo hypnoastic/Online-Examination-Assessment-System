@@ -7,20 +7,28 @@ import {
   QUESTION_DIFFICULTY_LABELS,
   QUESTION_TYPE_LABELS,
 } from "../../../questions/utils/question-authoring.js";
-import type { DraftExamSummary } from "../../domain/exam.types.js";
+import type {
+  DraftExamSummary,
+  ExamAssignmentCandidate,
+} from "../../domain/exam.types.js";
 import type {
   DraftExamAuthoringDraft,
   DraftExamAuthoringFormErrors,
+  DraftExamAssignmentAuthoringDraft,
+  DraftExamPublishReadiness,
   DraftExamSectionAuthoringDraft,
 } from "../exam-authoring-form.js";
 import {
   formatDraftExamDateTime,
+  getDraftExamAssignedStudentCount,
   getDraftExamManualReviewQuestionCount,
   getDraftExamMappedQuestionCount,
+  getDraftExamPublishReadiness,
   getDraftExamSectionTotalMarks,
   getDraftExamTotalMarks,
   getDraftExamWindowDurationMinutes,
   isQuestionMappedInDraft,
+  isStudentAssignedInDraft,
   parseDraftExamInstructions,
 } from "../exam-authoring-form.js";
 
@@ -36,6 +44,9 @@ const renderErrorMessages = (messages?: string[]) => {
 
 const toDifficultyTone = (difficulty: QuestionBankEntry["difficulty"]) =>
   difficulty.toLowerCase() as "easy" | "medium" | "hard";
+
+const getStatusToneClass = (status: DraftExamAuthoringDraft["status"]) =>
+  status === "SCHEDULED" ? "exam-authoring-chip--scheduled" : "exam-authoring-chip--draft";
 
 const renderExamAuthoringShell = ({
   description,
@@ -66,7 +77,7 @@ const renderExamAuthoringShell = ({
       </nav>
       <div class="question-bank-sidebar__footer">
         <p>Exam draft workspace</p>
-        <p>Metadata, sections, and question mapping stay aligned here before assignments or publication.</p>
+        <p>Metadata, mapped questions, assignments, and publish readiness stay aligned here before the exam reaches students.</p>
       </div>
     </aside>
     <main class="question-bank-shell__main">
@@ -166,13 +177,13 @@ const renderMetadataPanel = ({
   draft: DraftExamAuthoringDraft;
   errors: DraftExamAuthoringFormErrors;
 }) => `
-  <section id="section-builder" class="question-bank-panel exam-authoring-panel">
+  <section id="metadata" class="question-bank-panel exam-authoring-panel">
     <div class="exam-authoring-panel__heading">
       <div>
         <p class="exam-authoring-panel__eyebrow">Metadata</p>
         <h2>Set the draft identity</h2>
       </div>
-      <p class="exam-authoring-panel__helper">Title, code, and duration establish the draft exam contract used by later authoring steps.</p>
+      <p class="exam-authoring-panel__helper">Title, code, and duration define the contract the schedule, assignments, and publish checks rely on.</p>
     </div>
     <div class="exam-authoring-fields">
       <label class="question-bank-field exam-authoring-fields__wide">
@@ -236,7 +247,7 @@ const renderSchedulePanel = ({
           <p class="exam-authoring-panel__eyebrow">Schedule</p>
           <h2>Define the exam window</h2>
         </div>
-        <p class="exam-authoring-panel__helper">The scheduled window must open before it closes, and the exam duration must fit inside that range.</p>
+        <p class="exam-authoring-panel__helper">The window must open before it closes, and the configured duration has to fit inside that availability.</p>
       </div>
       <div class="exam-authoring-fields">
         <label class="question-bank-field">
@@ -283,7 +294,7 @@ const renderInstructionsPanel = ({
         <p class="exam-authoring-panel__eyebrow">Instructions</p>
         <h2>Write the student-facing guidance</h2>
       </div>
-      <p class="exam-authoring-panel__helper">Use one clear instruction per line so the saved draft can carry stable attempt guidance later.</p>
+      <p class="exam-authoring-panel__helper">Use one clear instruction per line so the saved exam carries stable student-facing copy.</p>
     </div>
     <label class="question-bank-field">
       <span class="question-bank-field__label">Exam instructions</span>
@@ -315,12 +326,10 @@ const renderQuestionSnapshotMeta = ({
 `;
 
 const renderSectionQuestionRows = ({
-  draft,
   section,
   sectionIndex,
   errors,
 }: {
-  draft: DraftExamAuthoringDraft;
   section: DraftExamSectionAuthoringDraft;
   sectionIndex: number;
   errors: DraftExamAuthoringFormErrors;
@@ -522,7 +531,6 @@ const renderSectionBuilderPanel = ({
                             <p>No questions mapped yet. Select this section, then add items from the question bank rail.</p>
                           </div>`
                         : renderSectionQuestionRows({
-                            draft,
                             section,
                             sectionIndex,
                             errors,
@@ -619,6 +627,214 @@ const renderQuestionMappingPanel = ({
   `;
 };
 
+const renderAssignmentCandidatePill = ({
+  tone,
+  label,
+}: {
+  tone: "eligible" | "neutral" | "blocked";
+  label: string;
+}) =>
+  `<span class="exam-assignment-pill exam-assignment-pill--${tone}">${escapeHtml(
+    label,
+  )}</span>`;
+
+const renderAssignmentMeta = ({
+  department,
+  studentEmail,
+  studentRole,
+  studentStatus,
+}: Pick<
+  DraftExamAssignmentAuthoringDraft,
+  "department" | "studentEmail" | "studentRole" | "studentStatus"
+>) => `
+  <div class="exam-assignment-row__meta">
+    ${renderAssignmentCandidatePill({
+      tone: studentRole === "STUDENT" ? "eligible" : "blocked",
+      label: studentRole,
+    })}
+    ${renderAssignmentCandidatePill({
+      tone: studentStatus === "ACTIVE" ? "eligible" : "blocked",
+      label: studentStatus,
+    })}
+    ${renderAssignmentCandidatePill({
+      tone: "neutral",
+      label: department,
+    })}
+    ${renderAssignmentCandidatePill({
+      tone: "neutral",
+      label: studentEmail,
+    })}
+  </div>
+`;
+
+const renderAssignedStudentsList = ({
+  assignments,
+  errors,
+}: {
+  assignments: DraftExamAssignmentAuthoringDraft[];
+  errors: DraftExamAuthoringFormErrors;
+}) =>
+  assignments.length === 0
+    ? `<div class="exam-builder-empty">
+        <h3>No students assigned yet</h3>
+        <p>Assign at least one active student to unlock exam publication.</p>
+      </div>`
+    : `<div class="exam-assignment-list">
+        ${assignments
+          .map((assignment, assignmentIndex) => {
+            const assignmentErrors =
+              errors.assignmentFields[assignmentIndex] ?? {};
+            const hasIssue =
+              Object.values(assignmentErrors).some(
+                (fieldMessages) => (fieldMessages?.length ?? 0) > 0,
+              ) || assignment.studentRole !== "STUDENT" || assignment.studentStatus !== "ACTIVE";
+
+            return `
+              <article class="exam-assignment-row${
+                hasIssue ? " is-invalid" : ""
+              }">
+                <div class="exam-assignment-row__main">
+                  <div>
+                    <p class="exam-builder-question__eyebrow">${escapeHtml(
+                      `${assignment.assignmentId} · ${assignment.studentId}`,
+                    )}</p>
+                    <h4>${escapeHtml(assignment.studentName)}</h4>
+                    ${renderAssignmentMeta(assignment)}
+                  </div>
+                  <button
+                    class="question-bank-button question-bank-button--secondary"
+                    type="button"
+                    data-action="remove-assignment"
+                    data-student-id="${escapeHtml(assignment.studentId)}"
+                  >
+                    Remove
+                  </button>
+                </div>
+                ${renderErrorMessages(assignmentErrors.studentId)}
+                ${renderErrorMessages(assignmentErrors.studentRole)}
+                ${renderErrorMessages(assignmentErrors.studentStatus)}
+              </article>
+            `;
+          })
+          .join("")}
+      </div>`;
+
+const renderAssignmentCandidateRows = ({
+  assignmentCandidates,
+  draft,
+}: {
+  assignmentCandidates: ExamAssignmentCandidate[];
+  draft: DraftExamAuthoringDraft;
+}) => `
+  <div class="exam-assignment-list">
+    ${assignmentCandidates
+      .map((candidate) => {
+        const alreadyAssigned = isStudentAssignedInDraft(draft, candidate.userId);
+        const isEligible = candidate.role === "STUDENT" && candidate.status === "ACTIVE";
+        const buttonLabel = alreadyAssigned
+          ? "Already assigned"
+          : candidate.role !== "STUDENT"
+            ? "Not a student"
+            : candidate.status !== "ACTIVE"
+              ? "Inactive user"
+              : "Assign student";
+        const helperText = alreadyAssigned
+          ? "This student is already mapped to the exam."
+          : isEligible
+            ? "Eligible for this exam assignment."
+            : candidate.role !== "STUDENT"
+              ? "Only student accounts can be assigned."
+              : "Inactive students cannot be published to an exam.";
+
+        return `
+          <article class="exam-assignment-row exam-assignment-row--candidate">
+            <div class="exam-assignment-row__main">
+              <div>
+                <p class="exam-builder-question__eyebrow">${escapeHtml(candidate.userId)}</p>
+                <h4>${escapeHtml(candidate.name)}</h4>
+                <div class="exam-assignment-row__meta">
+                  ${renderAssignmentCandidatePill({
+                    tone: candidate.role === "STUDENT" ? "eligible" : "blocked",
+                    label: candidate.role,
+                  })}
+                  ${renderAssignmentCandidatePill({
+                    tone: candidate.status === "ACTIVE" ? "eligible" : "blocked",
+                    label: candidate.status,
+                  })}
+                  ${renderAssignmentCandidatePill({
+                    tone: "neutral",
+                    label: candidate.department,
+                  })}
+                </div>
+                <p class="exam-builder-bank__detail">${escapeHtml(
+                  `${candidate.email} · ${helperText}`,
+                )}</p>
+              </div>
+              <button
+                class="question-bank-button${
+                  alreadyAssigned || !isEligible
+                    ? " question-bank-button--secondary"
+                    : ""
+                }"
+                type="button"
+                data-action="assign-student"
+                data-student-id="${escapeHtml(candidate.userId)}"
+                ${alreadyAssigned || !isEligible ? 'disabled="disabled"' : ""}
+              >
+                ${escapeHtml(buttonLabel)}
+              </button>
+            </div>
+          </article>
+        `;
+      })
+      .join("")}
+  </div>
+`;
+
+const renderAssignmentPanel = ({
+  assignmentCandidates,
+  draft,
+  errors,
+}: {
+  assignmentCandidates: ExamAssignmentCandidate[];
+  draft: DraftExamAuthoringDraft;
+  errors: DraftExamAuthoringFormErrors;
+}) => `
+  <section class="question-bank-panel exam-authoring-panel">
+    <div class="exam-authoring-panel__heading">
+      <div>
+        <p class="exam-authoring-panel__eyebrow">Assignments</p>
+        <h2>Assign students to the exam</h2>
+      </div>
+      <p class="exam-authoring-panel__helper">Duplicate assignments disable automatically, and only active student accounts are publish-ready.</p>
+    </div>
+    <div class="exam-assignment-grid">
+      <section class="exam-assignment-column">
+        <div class="exam-assignment-column__header">
+          <div>
+            <p class="exam-authoring-panel__eyebrow">Assigned Students</p>
+            <h3>${getDraftExamAssignedStudentCount(draft)} current assignment${
+              getDraftExamAssignedStudentCount(draft) === 1 ? "" : "s"
+            }</h3>
+          </div>
+          <p class="exam-authoring-panel__helper">These records become the publish gate for student eligibility.</p>
+        </div>
+        ${renderAssignedStudentsList({ assignments: draft.assignments, errors })}
+      </section>
+      <section class="exam-assignment-column">
+        <div class="exam-assignment-column__header">
+          <div>
+            <p class="exam-authoring-panel__eyebrow">Eligible Directory</p>
+            <h3>Available users</h3>
+          </div>
+          <p class="exam-authoring-panel__helper">Use the current roster to add valid students without leaving the builder.</p>
+        </div>
+        ${renderAssignmentCandidateRows({ assignmentCandidates, draft })}
+      </section>
+    </div>
+  </section>
+`;
+
 const renderSectionSummaryList = ({
   emptyCopy,
   sections,
@@ -649,6 +865,44 @@ const renderSectionSummaryList = ({
           .join("")}
       </div>`;
 
+const renderAssignmentSummaryList = ({
+  assignments,
+  emptyCopy,
+}: {
+  assignments: Array<
+    Pick<
+      DraftExamAssignmentAuthoringDraft,
+      "studentId" | "studentName" | "department" | "studentStatus"
+    > |
+      Pick<
+        DraftExamSummary["assignments"][number],
+        "studentId" | "studentName" | "department" | "studentStatus"
+      >
+  >;
+  emptyCopy: string;
+}) =>
+  assignments.length === 0
+    ? `<p class="exam-authoring-summary__empty">${escapeHtml(emptyCopy)}</p>`
+    : `<div class="exam-authoring-summary__sections">
+        ${assignments
+          .map(
+            (assignment) => `
+              <article class="exam-authoring-summary__section">
+                <div>
+                  <p class="exam-authoring-summary__section-order">${escapeHtml(
+                    assignment.studentId,
+                  )}</p>
+                  <h4>${escapeHtml(assignment.studentName)}</h4>
+                </div>
+                <p>${escapeHtml(
+                  `${assignment.department} · ${assignment.studentStatus}`,
+                )}</p>
+              </article>
+            `,
+          )
+          .join("")}
+      </div>`;
+
 const renderLiveSummary = ({
   draft,
 }: {
@@ -661,7 +915,9 @@ const renderLiveSummary = ({
     <section class="question-bank-panel exam-authoring-summary">
       <p class="exam-authoring-panel__eyebrow">Live Summary</p>
       <div class="exam-authoring-summary__chips">
-        <span class="exam-authoring-chip exam-authoring-chip--status">Draft</span>
+        <span class="exam-authoring-chip ${getStatusToneClass(draft.status)}">${escapeHtml(
+          draft.status,
+        )}</span>
         <span class="exam-authoring-chip exam-authoring-chip--code">${
           escapeHtml(draft.code || "Exam code")
         }</span>
@@ -676,6 +932,10 @@ const renderLiveSummary = ({
           <dd>${getDraftExamMappedQuestionCount(draft)}</dd>
         </div>
         <div>
+          <dt>Assigned students</dt>
+          <dd>${getDraftExamAssignedStudentCount(draft)}</dd>
+        </div>
+        <div>
           <dt>Total marks</dt>
           <dd>${getDraftExamTotalMarks(draft)}</dd>
         </div>
@@ -683,27 +943,26 @@ const renderLiveSummary = ({
           <dt>Manual review</dt>
           <dd>${getDraftExamManualReviewQuestionCount(draft)}</dd>
         </div>
+        <div>
+          <dt>Window preview</dt>
+          <dd>${getDraftWindowLengthLabel(draftWindowMinutes)}</dd>
+        </div>
       </dl>
       <section class="exam-authoring-summary__preview">
         <h3>${escapeHtml(draft.title || "Draft exam title preview")}</h3>
         <p class="exam-authoring-summary__window">
-          ${
-            draftWindowMinutes === null
-              ? "Complete the schedule fields to preview the active window length."
-              : draftWindowMinutes < 0
-                ? "The current schedule closes before it opens."
-                : `Window length: ${draftWindowMinutes} minutes`
-          }
+          ${escapeHtml(
+            `${formatDraftInputDateTime(draft.windowStartsAt)} to ${formatDraftInputDateTime(
+              draft.windowEndsAt,
+            )}`,
+          )}
         </p>
         ${
           instructions.length === 0
-            ? `<p class="exam-authoring-summary__empty">Instructions will appear here once the draft includes at least one line.</p>`
+            ? `<p class="exam-authoring-summary__empty">Instructions will appear here once the exam includes at least one line.</p>`
             : `<ol class="exam-authoring-summary__instructions">
                 ${instructions
-                  .map(
-                    (instruction) =>
-                      `<li>${escapeHtml(instruction)}</li>`,
-                  )
+                  .map((instruction) => `<li>${escapeHtml(instruction)}</li>`)
                   .join("")}
               </ol>`
         }
@@ -717,6 +976,48 @@ const renderLiveSummary = ({
   `;
 };
 
+const renderReadinessPanel = ({
+  draft,
+  readiness,
+}: {
+  draft: DraftExamAuthoringDraft;
+  readiness: DraftExamPublishReadiness;
+}) => `
+  <section class="question-bank-panel exam-authoring-summary exam-readiness">
+    <div class="exam-authoring-panel__heading">
+      <div>
+        <p class="exam-authoring-panel__eyebrow">Publish Readiness</p>
+        <h3>${readiness.isReady ? "Ready to schedule" : "Blocked"}</h3>
+      </div>
+      <span class="exam-authoring-chip ${getStatusToneClass(draft.status)}">${escapeHtml(
+        draft.status,
+      )}</span>
+    </div>
+    <p class="exam-authoring-summary__window">${
+      readiness.isReady
+        ? "Questions, schedule, and assignments are aligned for publication."
+        : "Resolve each blocked check before the exam can be published."
+    }</p>
+    <div class="exam-readiness__list">
+      ${readiness.checks
+        .map(
+          (check) => `
+            <article class="exam-readiness__item${
+              check.ready ? " is-ready" : " is-blocked"
+            }">
+              <div>
+                <p class="exam-readiness__label">${escapeHtml(check.label)}</p>
+                <h4>${escapeHtml(check.ready ? "Ready" : "Needs work")}</h4>
+              </div>
+              <p>${escapeHtml(check.detail)}</p>
+            </article>
+          `,
+        )
+        .join("")}
+    </div>
+  </section>
+`;
+
 const renderLastSavedDraftPanel = ({
   lastSavedExam,
 }: {
@@ -724,20 +1025,24 @@ const renderLastSavedDraftPanel = ({
 }) => `
   <section class="question-bank-panel exam-authoring-summary">
     <p class="exam-authoring-panel__eyebrow">${
-      lastSavedExam ? "Last Saved Draft" : "Validation Rules"
+      lastSavedExam ? "Last Saved Exam" : "Validation Rules"
     }</p>
     ${
       lastSavedExam
         ? `
+            <div class="exam-authoring-summary__chips">
+              <span class="exam-authoring-chip ${getStatusToneClass(lastSavedExam.status)}">${escapeHtml(
+                lastSavedExam.status,
+              )}</span>
+              <span class="exam-authoring-chip exam-authoring-chip--code">${escapeHtml(
+                lastSavedExam.code,
+              )}</span>
+            </div>
             <h3>${escapeHtml(lastSavedExam.title)}</h3>
             <p class="exam-authoring-summary__saved-code">${escapeHtml(
-              lastSavedExam.code,
-            )} · ${escapeHtml(lastSavedExam.examId)}</p>
+              lastSavedExam.examId,
+            )}</p>
             <dl class="exam-authoring-summary__stats">
-              <div>
-                <dt>Status</dt>
-                <dd>${lastSavedExam.status}</dd>
-              </div>
               <div>
                 <dt>Window length</dt>
                 <dd>${getDraftExamWindowDurationMinutes(lastSavedExam)} minutes</dd>
@@ -745,6 +1050,10 @@ const renderLastSavedDraftPanel = ({
               <div>
                 <dt>Questions</dt>
                 <dd>${getDraftExamMappedQuestionCount(lastSavedExam)}</dd>
+              </div>
+              <div>
+                <dt>Assignments</dt>
+                <dd>${getDraftExamAssignedStudentCount(lastSavedExam)}</dd>
               </div>
               <div>
                 <dt>Total marks</dt>
@@ -757,24 +1066,38 @@ const renderLastSavedDraftPanel = ({
               )}`,
             )}</p>
             ${renderSectionSummaryList({
-              emptyCopy: "No sections saved in this draft yet.",
+              emptyCopy: "No sections saved in this exam yet.",
               sections: lastSavedExam.sections,
+            })}
+            ${renderAssignmentSummaryList({
+              assignments: lastSavedExam.assignments,
+              emptyCopy: "No student assignments saved in this exam yet.",
             })}
           `
         : `<ul class="exam-authoring-summary__rules">
-            <li>Metadata and schedule still validate before sections are checked.</li>
-            <li>Each section needs a title and at least one mapped question before the full draft can be saved.</li>
-            <li>Question marks must stay positive, and a source question can only appear once in the draft.</li>
+            <li>The exam window must be valid, and duration has to fit inside it.</li>
+            <li>Every section needs a title and at least one mapped question before publication.</li>
+            <li>Only active student accounts can be assigned, and each student can appear once.</li>
           </ul>`
     }
   </section>
 `;
 
-const renderActionPanel = () => `
+const renderActionPanel = ({
+  readiness,
+  status,
+}: {
+  readiness: DraftExamPublishReadiness;
+  status: DraftExamAuthoringDraft["status"];
+}) => `
   <section class="question-bank-panel exam-authoring-actions">
     <div>
-      <h2>Ready to save this draft?</h2>
-      <p>Saving now persists the metadata foundation plus ordered sections and mapped question snapshots. Later steps can extend assignments and publication on top of this structure.</p>
+      <h2>${status === "SCHEDULED" ? "Update this scheduled exam" : "Save or publish this exam"}</h2>
+      <p>${
+        readiness.isReady
+          ? "The builder is publish-ready. Save if you want a checkpoint, or publish now to move the exam into scheduled availability."
+          : "Saving keeps progress safe, but publish stays blocked until the readiness checks on the right rail all pass."
+      }</p>
     </div>
     <div class="exam-authoring-actions__buttons">
       <button
@@ -785,11 +1108,18 @@ const renderActionPanel = () => `
         Reset draft
       </button>
       <button
-        class="question-bank-button"
+        class="question-bank-button question-bank-button--secondary"
         type="button"
         data-action="submit-draft"
       >
         Save draft exam
+      </button>
+      <button
+        class="question-bank-button"
+        type="button"
+        data-action="publish-exam"
+      >
+        Publish exam
       </button>
     </div>
   </section>
@@ -797,6 +1127,7 @@ const renderActionPanel = () => `
 
 export const renderCreateDraftExamPage = ({
   activeSectionId,
+  assignmentCandidates,
   draft,
   errors,
   lastSavedExam,
@@ -804,6 +1135,7 @@ export const renderCreateDraftExamPage = ({
   status,
 }: {
   activeSectionId: string | null;
+  assignmentCandidates: ExamAssignmentCandidate[];
   draft: DraftExamAuthoringDraft;
   errors: DraftExamAuthoringFormErrors;
   lastSavedExam: DraftExamSummary | null;
@@ -812,11 +1144,13 @@ export const renderCreateDraftExamPage = ({
     | { tone: "success"; title: string; detail: string }
     | { tone: "error"; title: string; detail: string }
     | null;
-}) =>
-  renderExamAuthoringShell({
+}) => {
+  const readiness = getDraftExamPublishReadiness(draft);
+
+  return renderExamAuthoringShell({
     title: "Create Draft Exam",
     description:
-      "Capture the exam metadata, organize sections, and map reusable question snapshots into a draft structure that stays ready for later authoring steps.",
+      "Capture metadata, organize sections, assign students, and keep publish readiness visible while the exam moves from draft to scheduled availability.",
     headerActions: `
       <a class="question-bank-button question-bank-button--secondary" href="../question-bank/index.html">
         Open question bank
@@ -830,9 +1164,11 @@ export const renderCreateDraftExamPage = ({
           ${renderSchedulePanel({ draft, errors })}
           ${renderInstructionsPanel({ draft, errors })}
           ${renderSectionBuilderPanel({ activeSectionId, draft, errors })}
-          ${renderActionPanel()}
+          ${renderAssignmentPanel({ assignmentCandidates, draft, errors })}
+          ${renderActionPanel({ readiness, status: draft.status })}
         </div>
         <aside class="exam-authoring-sidebar">
+          ${renderReadinessPanel({ draft, readiness })}
           ${renderQuestionMappingPanel({
             activeSectionId,
             draft,
@@ -844,3 +1180,4 @@ export const renderCreateDraftExamPage = ({
       </section>
     `,
   });
+};

@@ -1,10 +1,12 @@
 import type { QuestionBankEntry } from "../../questions/question-bank/question-bank.types.js";
 import type {
-  DraftExamQuestionRecord,
+  DraftExamAssignmentRecord,
   DraftExamQuestionSnapshot,
   DraftExamSectionRecord,
   DraftExamSummary,
   DraftExamValues,
+  ExamAssignmentCandidate,
+  ExamAuthoringStatus,
 } from "../domain/exam.types.js";
 import {
   draftExamSchema,
@@ -25,6 +27,9 @@ export interface DraftExamSectionAuthoringDraft {
   questions: DraftExamQuestionAuthoringDraft[];
 }
 
+export interface DraftExamAssignmentAuthoringDraft
+  extends DraftExamAssignmentRecord {}
+
 export interface DraftExamAuthoringDraft {
   title: string;
   code: string;
@@ -33,11 +38,20 @@ export interface DraftExamAuthoringDraft {
   windowStartsAt: string;
   windowEndsAt: string;
   sections: DraftExamSectionAuthoringDraft[];
+  assignments: DraftExamAssignmentAuthoringDraft[];
+  status: ExamAuthoringStatus;
 }
 
-type DraftExamFieldKey = Exclude<keyof DraftExamAuthoringDraft, "sections">;
+type DraftExamFieldKey = Exclude<
+  keyof DraftExamAuthoringDraft,
+  "sections" | "assignments" | "status"
+>;
 type DraftExamSectionFieldKey = "title" | "sectionOrder" | "questions";
 type DraftExamQuestionFieldKey = "marks" | "questionOrder";
+type DraftExamAssignmentFieldKey =
+  | "studentId"
+  | "studentRole"
+  | "studentStatus";
 
 export interface DraftExamAuthoringFormErrors {
   summary: string[];
@@ -51,6 +65,23 @@ export interface DraftExamAuthoringFormErrors {
     number,
     Record<number, Partial<Record<DraftExamQuestionFieldKey, string[]>>>
   >;
+  assignmentFields: Record<
+    number,
+    Partial<Record<DraftExamAssignmentFieldKey, string[]>>
+  >;
+}
+
+export interface DraftExamReadinessCheck {
+  id: "schedule" | "questions" | "assignments";
+  label: string;
+  ready: boolean;
+  detail: string;
+}
+
+export interface DraftExamPublishReadiness {
+  isReady: boolean;
+  checks: DraftExamReadinessCheck[];
+  blockingMessages: string[];
 }
 
 const DRAFT_EXAM_FIELD_KEYS = new Set<DraftExamFieldKey>([
@@ -70,6 +101,11 @@ const DRAFT_EXAM_QUESTION_FIELD_KEYS = new Set<DraftExamQuestionFieldKey>([
   "marks",
   "questionOrder",
 ]);
+const DRAFT_EXAM_ASSIGNMENT_FIELD_KEYS = new Set<DraftExamAssignmentFieldKey>([
+  "studentId",
+  "studentRole",
+  "studentStatus",
+]);
 
 const VALIDATION_PATH_TO_FIELD: Record<string, DraftExamFieldKey> = {
   title: "title",
@@ -86,6 +122,12 @@ const pushUniqueMessage = (messages: string[], message: string) => {
   }
 };
 
+const isPositiveWholeNumber = (value: string | number) => {
+  const numericValue = typeof value === "number" ? value : Number(value);
+
+  return Number.isInteger(numericValue) && numericValue >= 1;
+};
+
 export const createEmptyDraftExamFormErrors =
   (): DraftExamAuthoringFormErrors => ({
     summary: [],
@@ -93,6 +135,7 @@ export const createEmptyDraftExamFormErrors =
     fields: {},
     sectionFields: {},
     questionFields: {},
+    assignmentFields: {},
   });
 
 export const createDraftExamAuthoringDraft = (
@@ -105,6 +148,8 @@ export const createDraftExamAuthoringDraft = (
   windowStartsAt: "",
   windowEndsAt: "",
   sections: [],
+  assignments: [],
+  status: "DRAFT",
   ...overrides,
 });
 
@@ -182,6 +227,217 @@ const parseMarksValue = (value: string | number) => {
 const getDefaultExamQuestionMarks = (entry: QuestionBankEntry) =>
   entry.reviewMode === "MANUAL" ? "10" : "2";
 
+const appendBlockingMessages = (
+  errors: DraftExamAuthoringFormErrors,
+  messages: string[],
+) => {
+  messages.forEach((message) => {
+    pushUniqueMessage(errors.summary, message);
+    pushUniqueMessage(errors.form, message);
+  });
+
+  return errors;
+};
+
+const getScheduleCheck = (
+  draft: DraftExamAuthoringDraft,
+): DraftExamReadinessCheck => {
+  if (draft.windowStartsAt.trim() === "" || draft.windowEndsAt.trim() === "") {
+    return {
+      id: "schedule",
+      label: "Schedule",
+      ready: false,
+      detail: "Add both schedule fields before the exam can be published.",
+    };
+  }
+
+  const start = new Date(draft.windowStartsAt);
+  const end = new Date(draft.windowEndsAt);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return {
+      id: "schedule",
+      label: "Schedule",
+      ready: false,
+      detail: "Use valid date and time values for the exam window.",
+    };
+  }
+
+  if (start.getTime() >= end.getTime()) {
+    return {
+      id: "schedule",
+      label: "Schedule",
+      ready: false,
+      detail: "The exam window must close after it opens.",
+    };
+  }
+
+  if (!isPositiveWholeNumber(draft.durationMinutes)) {
+    return {
+      id: "schedule",
+      label: "Schedule",
+      ready: false,
+      detail: "Duration must be a whole number greater than zero.",
+    };
+  }
+
+  const windowMinutes = Math.round((end.getTime() - start.getTime()) / (60 * 1000));
+
+  if (windowMinutes < Number(draft.durationMinutes)) {
+    return {
+      id: "schedule",
+      label: "Schedule",
+      ready: false,
+      detail: "Duration must fit completely inside the scheduled exam window.",
+    };
+  }
+
+  return {
+    id: "schedule",
+    label: "Schedule",
+    ready: true,
+    detail: `${windowMinutes} minute window supports the current duration.`,
+  };
+};
+
+const getQuestionCheck = (
+  draft: DraftExamAuthoringDraft,
+): DraftExamReadinessCheck => {
+  if (draft.sections.length === 0 || getDraftExamMappedQuestionCount(draft) === 0) {
+    return {
+      id: "questions",
+      label: "Questions",
+      ready: false,
+      detail: "Map at least one reusable question into an ordered section.",
+    };
+  }
+
+  const seenSourceQuestionIds = new Set<string>();
+
+  for (const section of draft.sections) {
+    if (section.title.trim() === "") {
+      return {
+        id: "questions",
+        label: "Questions",
+        ready: false,
+        detail: "Every section needs a title before the exam can be published.",
+      };
+    }
+
+    if (section.questions.length === 0) {
+      return {
+        id: "questions",
+        label: "Questions",
+        ready: false,
+        detail: "Every section must contain at least one mapped question.",
+      };
+    }
+
+    for (const question of section.questions) {
+      if (!isPositiveWholeNumber(question.marks)) {
+        return {
+          id: "questions",
+          label: "Questions",
+          ready: false,
+          detail: "Each mapped question needs whole-number marks greater than zero.",
+        };
+      }
+
+      if (seenSourceQuestionIds.has(question.snapshot.sourceQuestionId)) {
+        return {
+          id: "questions",
+          label: "Questions",
+          ready: false,
+          detail: "A source question can only appear once in a scheduled exam.",
+        };
+      }
+
+      seenSourceQuestionIds.add(question.snapshot.sourceQuestionId);
+    }
+  }
+
+  return {
+    id: "questions",
+    label: "Questions",
+    ready: true,
+    detail: `${getDraftExamMappedQuestionCount(draft)} mapped questions are ready to publish.`,
+  };
+};
+
+const getAssignmentCheck = (
+  draft: DraftExamAuthoringDraft,
+): DraftExamReadinessCheck => {
+  if (draft.assignments.length === 0) {
+    return {
+      id: "assignments",
+      label: "Assignments",
+      ready: false,
+      detail: "Assign at least one active student before publishing.",
+    };
+  }
+
+  const seenStudentIds = new Set<string>();
+
+  for (const assignment of draft.assignments) {
+    if (seenStudentIds.has(assignment.studentId)) {
+      return {
+        id: "assignments",
+        label: "Assignments",
+        ready: false,
+        detail: "Duplicate student assignments must be removed before publishing.",
+      };
+    }
+
+    seenStudentIds.add(assignment.studentId);
+
+    if (assignment.studentRole !== "STUDENT") {
+      return {
+        id: "assignments",
+        label: "Assignments",
+        ready: false,
+        detail: "Only student accounts are eligible for exam assignment.",
+      };
+    }
+
+    if (assignment.studentStatus !== "ACTIVE") {
+      return {
+        id: "assignments",
+        label: "Assignments",
+        ready: false,
+        detail: "Inactive students must be removed before the exam can be published.",
+      };
+    }
+  }
+
+  return {
+    id: "assignments",
+    label: "Assignments",
+    ready: true,
+    detail: `${draft.assignments.length} active student assignment${
+      draft.assignments.length === 1 ? "" : "s"
+    } confirmed.`,
+  };
+};
+
+export const getDraftExamPublishReadiness = (
+  draft: DraftExamAuthoringDraft,
+): DraftExamPublishReadiness => {
+  const checks = [
+    getScheduleCheck(draft),
+    getQuestionCheck(draft),
+    getAssignmentCheck(draft),
+  ];
+  const blockingMessages = checks
+    .filter((check) => !check.ready)
+    .map((check) => check.detail);
+
+  return {
+    isReady: blockingMessages.length === 0,
+    checks,
+    blockingMessages,
+  };
+};
+
 export const createDraftExamQuestionSnapshot = (
   entry: QuestionBankEntry,
 ): DraftExamQuestionSnapshot => ({
@@ -194,6 +450,18 @@ export const createDraftExamQuestionSnapshot = (
   reviewMode: entry.reviewMode,
 });
 
+export const createDraftExamAssignmentRecord = (
+  candidate: ExamAssignmentCandidate,
+): DraftExamAssignmentAuthoringDraft => ({
+  assignmentId: "",
+  studentId: candidate.userId,
+  studentName: candidate.name,
+  studentEmail: candidate.email,
+  department: candidate.department,
+  studentRole: candidate.role,
+  studentStatus: candidate.status,
+});
+
 export const isQuestionMappedInDraft = (
   draft: DraftExamAuthoringDraft,
   sourceQuestionId: string,
@@ -203,6 +471,12 @@ export const isQuestionMappedInDraft = (
       (question) => question.snapshot.sourceQuestionId === sourceQuestionId,
     ),
   );
+
+export const isStudentAssignedInDraft = (
+  draft: DraftExamAuthoringDraft,
+  studentId: string,
+) =>
+  draft.assignments.some((assignment) => assignment.studentId === studentId);
 
 export const addDraftExamSection = (
   draft: DraftExamAuthoringDraft,
@@ -381,10 +655,48 @@ export const updateDraftExamQuestionMarks = (
     ),
   }));
 
+export const addStudentAssignmentToDraftExam = (
+  draft: DraftExamAuthoringDraft,
+  candidate: ExamAssignmentCandidate,
+): DraftExamAuthoringDraft => {
+  if (isStudentAssignedInDraft(draft, candidate.userId)) {
+    return draft;
+  }
+
+  return {
+    ...draft,
+    assignments: [
+      ...draft.assignments,
+      {
+        ...createDraftExamAssignmentRecord(candidate),
+        assignmentId: getNextEntityId(
+          draft.assignments.map((assignment) => assignment.assignmentId),
+          "assignment",
+        ),
+      },
+    ],
+  };
+};
+
+export const removeStudentAssignmentFromDraftExam = (
+  draft: DraftExamAuthoringDraft,
+  studentId: string,
+): DraftExamAuthoringDraft => ({
+  ...draft,
+  assignments: draft.assignments.filter(
+    (assignment) => assignment.studentId !== studentId,
+  ),
+});
+
 export const getDraftExamMappedQuestionCount = ({
   sections,
 }: Pick<DraftExamAuthoringDraft | DraftExamValues, "sections">) =>
   sections.reduce((total, section) => total + section.questions.length, 0);
+
+export const getDraftExamAssignedStudentCount = ({
+  assignments,
+}: Pick<DraftExamAuthoringDraft | DraftExamValues, "assignments">) =>
+  assignments.length;
 
 export const getDraftExamSectionTotalMarks = ({
   questions,
@@ -414,7 +726,10 @@ export const getDraftExamManualReviewQuestionCount = ({
     0,
   );
 
-const toDraftExamValidationInput = (draft: DraftExamAuthoringDraft) => ({
+const toDraftExamValidationInput = (
+  draft: DraftExamAuthoringDraft,
+  status: ExamAuthoringStatus = draft.status,
+) => ({
   title: draft.title,
   code: draft.code,
   instructions: parseDraftExamInstructions(draft.instructionsText),
@@ -432,7 +747,16 @@ const toDraftExamValidationInput = (draft: DraftExamAuthoringDraft) => ({
       snapshot: question.snapshot,
     })),
   })),
-  status: "DRAFT" as const,
+  assignments: draft.assignments.map((assignment) => ({
+    assignmentId: assignment.assignmentId,
+    studentId: assignment.studentId,
+    studentName: assignment.studentName,
+    studentEmail: assignment.studentEmail,
+    department: assignment.department,
+    studentRole: assignment.studentRole,
+    studentStatus: assignment.studentStatus,
+  })),
+  status,
 });
 
 export const mapDraftExamValidationErrors = (
@@ -450,10 +774,7 @@ export const mapDraftExamValidationErrors = (
 
     const firstSegment = issue.path[0];
 
-    if (
-      firstSegment === "sections" &&
-      typeof issue.path[1] === "number"
-    ) {
+    if (firstSegment === "sections" && typeof issue.path[1] === "number") {
       const sectionIndex = issue.path[1];
       const sectionField = issue.path[2];
 
@@ -504,6 +825,35 @@ export const mapDraftExamValidationErrors = (
       return;
     }
 
+    if (firstSegment === "assignments" && typeof issue.path[1] === "number") {
+      const assignmentIndex = issue.path[1];
+      const assignmentField = issue.path[2];
+
+      if (
+        typeof assignmentField === "string" &&
+        DRAFT_EXAM_ASSIGNMENT_FIELD_KEYS.has(
+          assignmentField as DraftExamAssignmentFieldKey,
+        )
+      ) {
+        const assignmentFieldErrors =
+          errors.assignmentFields[assignmentIndex] ?? {};
+        const fieldMessages =
+          assignmentFieldErrors[
+            assignmentField as DraftExamAssignmentFieldKey
+          ] ?? [];
+
+        pushUniqueMessage(fieldMessages, issue.message);
+        assignmentFieldErrors[
+          assignmentField as DraftExamAssignmentFieldKey
+        ] = fieldMessages;
+        errors.assignmentFields[assignmentIndex] = assignmentFieldErrors;
+        return;
+      }
+
+      pushUniqueMessage(errors.form, issue.message);
+      return;
+    }
+
     if (typeof firstSegment !== "string") {
       pushUniqueMessage(errors.form, issue.message);
       return;
@@ -541,6 +891,53 @@ export const validateDraftExamAuthoringDraft = (
   return {
     success: false,
     errors: mapDraftExamValidationErrors(parsed.error.issues),
+  };
+};
+
+export const publishDraftExamAuthoringDraft = (
+  draft: DraftExamAuthoringDraft,
+):
+  | {
+      success: true;
+      data: DraftExamValidatedValues;
+      readiness: DraftExamPublishReadiness;
+    }
+  | {
+      success: false;
+      errors: DraftExamAuthoringFormErrors;
+      readiness: DraftExamPublishReadiness;
+    } => {
+  const readiness = getDraftExamPublishReadiness(draft);
+  const parsed = draftExamSchema.safeParse(
+    toDraftExamValidationInput(draft, "SCHEDULED"),
+  );
+
+  if (!parsed.success) {
+    return {
+      success: false,
+      errors: appendBlockingMessages(
+        mapDraftExamValidationErrors(parsed.error.issues),
+        readiness.blockingMessages,
+      ),
+      readiness,
+    };
+  }
+
+  if (!readiness.isReady) {
+    return {
+      success: false,
+      errors: appendBlockingMessages(
+        createEmptyDraftExamFormErrors(),
+        readiness.blockingMessages,
+      ),
+      readiness,
+    };
+  }
+
+  return {
+    success: true,
+    data: parsed.data,
+    readiness,
   };
 };
 
@@ -590,7 +987,8 @@ export const normalizeDraftExamAuthoringDraft = (
   code: values.code,
   instructionsText: values.instructions.join("\n"),
   durationMinutes: String(values.durationMinutes),
-  windowStartsAt: draft.windowStartsAt || toDateTimeLocalValue(values.windowStartsAt),
+  windowStartsAt:
+    draft.windowStartsAt || toDateTimeLocalValue(values.windowStartsAt),
   windowEndsAt: draft.windowEndsAt || toDateTimeLocalValue(values.windowEndsAt),
   sections: values.sections.map((section) => ({
     sectionId: section.sectionId,
@@ -603,4 +1001,14 @@ export const normalizeDraftExamAuthoringDraft = (
       snapshot: question.snapshot,
     })),
   })),
+  assignments: values.assignments.map((assignment) => ({
+    assignmentId: assignment.assignmentId,
+    studentId: assignment.studentId,
+    studentName: assignment.studentName,
+    studentEmail: assignment.studentEmail,
+    department: assignment.department,
+    studentRole: assignment.studentRole,
+    studentStatus: assignment.studentStatus,
+  })),
+  status: values.status,
 });

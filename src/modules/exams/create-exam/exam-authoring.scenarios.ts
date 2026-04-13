@@ -1,13 +1,18 @@
 import {
   addDraftExamSection,
+  addStudentAssignmentToDraftExam,
   addQuestionToDraftExamSection,
   createDraftExamAuthoringDraft,
+  createDraftExamAssignmentRecord,
   moveDraftExamQuestion,
   moveDraftExamSection,
   updateDraftExamQuestionMarks,
   updateDraftExamSectionTitle,
   type DraftExamAuthoringDraft,
 } from "./exam-authoring-form.js";
+import {
+  findExamAssignmentCandidate,
+} from "./exam-assignment-candidates.js";
 import {
   QUESTION_BANK_SAMPLE_ENTRIES,
 } from "../../questions/question-bank/question-bank.data.js";
@@ -107,6 +112,53 @@ const buildBuilderSuccessDraft = () => {
   return draft;
 };
 
+const requireAssignmentCandidate = (userId: string) => {
+  const candidate = findExamAssignmentCandidate(userId);
+
+  if (!candidate) {
+    throw new Error(`Missing assignment candidate: ${userId}`);
+  }
+
+  return candidate;
+};
+
+const buildPublishReadyDraft = () => {
+  let draft = buildBuilderSuccessDraft();
+
+  draft = addStudentAssignmentToDraftExam(
+    draft,
+    requireAssignmentCandidate("user-student-001"),
+  );
+  draft = addStudentAssignmentToDraftExam(
+    draft,
+    requireAssignmentCandidate("user-student-002"),
+  );
+
+  return draft;
+};
+
+const buildInvalidAssignmentDraft = () => {
+  const draft = buildBuilderSuccessDraft();
+
+  return {
+    ...draft,
+    assignments: [
+      {
+        ...createDraftExamAssignmentRecord(
+          requireAssignmentCandidate("user-student-003"),
+        ),
+        assignmentId: "assignment-1",
+      },
+      {
+        ...createDraftExamAssignmentRecord(
+          requireAssignmentCandidate("user-examiner-001"),
+        ),
+        assignmentId: "assignment-2",
+      },
+    ],
+  };
+};
+
 export const DRAFT_EXAM_AUTHORING_SCENARIOS: Record<
   string,
   DraftExamAuthoringDraft
@@ -121,6 +173,7 @@ export const DRAFT_EXAM_AUTHORING_SCENARIOS: Record<
     windowEndsAt: "2026-04-20T10:30",
   }),
   "builder-success": buildBuilderSuccessDraft(),
+  "publish-ready": buildPublishReadyDraft(),
   "invalid-window": createDraftExamAuthoringDraft({
     title: "Operating Systems Quiz",
     code: "OS-220",
@@ -141,4 +194,5 @@ export const DRAFT_EXAM_AUTHORING_SCENARIOS: Record<
     }),
     { title: "Part A" },
   ),
+  "invalid-assignment": buildInvalidAssignmentDraft(),
 };

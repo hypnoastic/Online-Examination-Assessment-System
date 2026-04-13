@@ -2,20 +2,27 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { QUESTION_BANK_SAMPLE_ENTRIES } from "../../questions/question-bank/question-bank.data.js";
+import { findExamAssignmentCandidate } from "./exam-assignment-candidates.js";
 import {
   addDraftExamSection,
+  addStudentAssignmentToDraftExam,
   addQuestionToDraftExamSection,
   createDraftExamAuthoringDraft,
   createDraftExamSummary,
+  getDraftExamAssignedStudentCount,
   getDraftExamMappedQuestionCount,
+  getDraftExamPublishReadiness,
   getDraftExamSectionTotalMarks,
   getDraftExamTotalMarks,
   getDraftExamWindowDurationMinutes,
   isQuestionMappedInDraft,
+  isStudentAssignedInDraft,
   moveDraftExamQuestion,
   moveDraftExamSection,
   normalizeDraftExamAuthoringDraft,
   parseDraftExamInstructions,
+  publishDraftExamAuthoringDraft,
+  removeStudentAssignmentFromDraftExam,
   removeQuestionFromDraftExamSection,
   updateDraftExamQuestionMarks,
   updateDraftExamSectionTitle,
@@ -32,6 +39,16 @@ const getQuestionBankEntry = (questionId: string) => {
   }
 
   return entry;
+};
+
+const getAssignmentCandidate = (userId: string) => {
+  const candidate = findExamAssignmentCandidate(userId);
+
+  if (!candidate) {
+    throw new Error(`Missing assignment candidate: ${userId}`);
+  }
+
+  return candidate;
 };
 
 test("draft exam validation accepts valid metadata and persists parsed instructions", () => {
@@ -246,6 +263,34 @@ test("mapped question marks persist through validation and saved draft normaliza
   assert.equal(summary.sections[0]?.questions[1]?.marks, 3);
 });
 
+test("student assignments can be added, deduplicated, and removed from the draft", () => {
+  let draft = createDraftExamAuthoringDraft();
+
+  draft = addStudentAssignmentToDraftExam(
+    draft,
+    getAssignmentCandidate("user-student-001"),
+  );
+  draft = addStudentAssignmentToDraftExam(
+    draft,
+    getAssignmentCandidate("user-student-002"),
+  );
+  draft = addStudentAssignmentToDraftExam(
+    draft,
+    getAssignmentCandidate("user-student-001"),
+  );
+
+  assert.equal(getDraftExamAssignedStudentCount(draft), 2);
+  assert.equal(isStudentAssignedInDraft(draft, "user-student-001"), true);
+
+  draft = removeStudentAssignmentFromDraftExam(draft, "user-student-001");
+
+  assert.equal(getDraftExamAssignedStudentCount(draft), 1);
+  assert.deepEqual(
+    draft.assignments.map((assignment) => assignment.studentId),
+    ["user-student-002"],
+  );
+});
+
 test("saving blocks empty sections and invalid mapped question marks", () => {
   let emptySectionDraft = addDraftExamSection(
     createDraftExamAuthoringDraft({
@@ -306,4 +351,88 @@ test("saving blocks empty sections and invalid mapped question marks", () => {
   assert.deepEqual(invalidMarksResult.errors.questionFields[0]?.[0]?.marks, [
     "Marks must be at least 1",
   ]);
+});
+
+test("assignment validation blocks inactive students and non-student roles", () => {
+  const draft = createDraftExamAuthoringDraft({
+    title: "Software Engineering Assessment",
+    code: "SE-315",
+    instructionsText: "Answer every section carefully.",
+    durationMinutes: "60",
+    windowStartsAt: "2026-04-21T10:00",
+    windowEndsAt: "2026-04-21T11:15",
+    assignments: [
+      {
+        assignmentId: "assignment-1",
+        studentId: "user-student-003",
+        studentName: "Neha Kapoor",
+        studentEmail: "neha.kapoor@college.edu",
+        department: "BCA",
+        studentRole: "STUDENT",
+        studentStatus: "INACTIVE",
+      },
+      {
+        assignmentId: "assignment-2",
+        studentId: "user-examiner-001",
+        studentName: "Rahul Verma",
+        studentEmail: "rahul.verma@college.edu",
+        department: "Computer Science",
+        studentRole: "EXAMINER",
+        studentStatus: "ACTIVE",
+      },
+    ],
+  });
+
+  const result = validateDraftExamAuthoringDraft(draft);
+
+  assert.equal(result.success, false);
+
+  if (result.success) {
+    throw new Error("Expected invalid assignments to fail validation");
+  }
+
+  assert.deepEqual(result.errors.assignmentFields[0]?.studentStatus, [
+    "Only active students can be assigned to an exam",
+  ]);
+  assert.deepEqual(result.errors.assignmentFields[1]?.studentRole, [
+    "Only student users can be assigned to an exam",
+  ]);
+});
+
+test("publish readiness requires mapped questions and active student assignments", () => {
+  let draft = createDraftExamAuthoringDraft({
+    title: "Database Systems Midterm",
+    code: "DBMS-301",
+    instructionsText: "Read carefully.\nShow working where required.",
+    durationMinutes: "90",
+    windowStartsAt: "2026-04-20T09:00",
+    windowEndsAt: "2026-04-20T10:30",
+  });
+
+  const initialReadiness = getDraftExamPublishReadiness(draft);
+
+  assert.equal(initialReadiness.isReady, false);
+  assert.deepEqual(
+    initialReadiness.checks.filter((check) => !check.ready).map((check) => check.id),
+    ["questions", "assignments"],
+  );
+
+  draft = addDraftExamSection(draft, { title: "Objective Core" });
+  const sectionId = draft.sections[0]?.sectionId ?? "";
+  draft = addQuestionToDraftExamSection(draft, sectionId, getQuestionBankEntry("Q-204"));
+  draft = addStudentAssignmentToDraftExam(
+    draft,
+    getAssignmentCandidate("user-student-001"),
+  );
+
+  const publishResult = publishDraftExamAuthoringDraft(draft);
+
+  assert.equal(publishResult.success, true);
+
+  if (!publishResult.success) {
+    throw new Error("Expected publish flow to succeed");
+  }
+
+  assert.equal(publishResult.readiness.isReady, true);
+  assert.equal(publishResult.data.status, "SCHEDULED");
 });

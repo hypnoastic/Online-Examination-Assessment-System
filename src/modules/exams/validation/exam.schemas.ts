@@ -1,6 +1,11 @@
 import { z } from "zod";
 
 import {
+  EXAM_ASSIGNMENT_ROLES,
+  EXAM_ASSIGNMENT_STATUSES,
+  EXAM_AUTHORING_STATUSES,
+} from "../domain/exam.types.js";
+import {
   QUESTION_DIFFICULTIES,
   QUESTION_REVIEW_MODES,
   QUESTION_TYPES,
@@ -125,6 +130,19 @@ const draftExamSectionSchema = z
     });
   });
 
+const draftExamAssignmentSchema = z.object({
+  assignmentId: requiredText("Assignment id", ID_MAX_LENGTH),
+  studentId: requiredText("Student id", ID_MAX_LENGTH),
+  studentName: requiredText("Student name", 180),
+  studentEmail: z
+    .string()
+    .trim()
+    .email("Student email must be a valid email address"),
+  department: requiredText("Department", 180),
+  studentRole: z.enum(EXAM_ASSIGNMENT_ROLES),
+  studentStatus: z.enum(EXAM_ASSIGNMENT_STATUSES),
+});
+
 export const draftExamSchema = z
   .object({
     title: requiredText("Exam title", TITLE_MAX_LENGTH),
@@ -141,7 +159,10 @@ export const draftExamSchema = z
     windowStartsAt: dateField("Window start"),
     windowEndsAt: dateField("Window end"),
     sections: z.array(draftExamSectionSchema).max(12, "At most twelve sections are supported"),
-    status: z.literal("DRAFT"),
+    assignments: z
+      .array(draftExamAssignmentSchema)
+      .max(500, "At most five hundred student assignments are supported"),
+    status: z.enum(EXAM_AUTHORING_STATUSES),
   })
   .superRefine((exam, context) => {
     if (exam.windowStartsAt.getTime() >= exam.windowEndsAt.getTime()) {
@@ -167,6 +188,8 @@ export const draftExamSchema = z
 
     const seenSectionOrders = new Set<number>();
     const seenSourceQuestionIds = new Set<string>();
+    const seenAssignmentIds = new Set<string>();
+    const seenStudentIds = new Set<string>();
 
     exam.sections.forEach((section, sectionIndex) => {
       if (seenSectionOrders.has(section.sectionOrder)) {
@@ -191,6 +214,44 @@ export const draftExamSchema = z
           seenSourceQuestionIds.add(question.snapshot.sourceQuestionId);
         }
       });
+    });
+
+    exam.assignments.forEach((assignment, assignmentIndex) => {
+      if (seenAssignmentIds.has(assignment.assignmentId)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Assignment ids must stay unique within an exam",
+          path: ["assignments", assignmentIndex, "assignmentId"],
+        });
+      } else {
+        seenAssignmentIds.add(assignment.assignmentId);
+      }
+
+      if (seenStudentIds.has(assignment.studentId)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Each student can only be assigned once to an exam",
+          path: ["assignments", assignmentIndex, "studentId"],
+        });
+      } else {
+        seenStudentIds.add(assignment.studentId);
+      }
+
+      if (assignment.studentRole !== "STUDENT") {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Only student users can be assigned to an exam",
+          path: ["assignments", assignmentIndex, "studentRole"],
+        });
+      }
+
+      if (assignment.studentStatus !== "ACTIVE") {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Only active students can be assigned to an exam",
+          path: ["assignments", assignmentIndex, "studentStatus"],
+        });
+      }
     });
   });
 
