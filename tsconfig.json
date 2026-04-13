@@ -15,7 +15,9 @@
     "resolveJsonModule": true
   },
   "include": [
+    "src/browser/exams/**/*.ts",
     "src/browser/question-bank/**/*.ts",
+    "src/modules/exams/**/*.ts",
     "src/modules/questions/**/*.ts"
   ]
 }

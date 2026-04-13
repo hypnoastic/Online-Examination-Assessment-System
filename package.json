@@ -4,6 +4,6 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json --pretty false && node scripts/build-browser.mjs",
-    "test": "npm run build && node --test dist/modules/questions/validation/question.schemas.test.js dist/modules/questions/question-bank/question-bank-listing.test.js dist/modules/questions/create-question/objective-question-form.test.js dist/modules/questions/create-question/question-authoring-form.test.js"
+    "test": "npm run build && node --test dist/modules/questions/validation/question.schemas.test.js dist/modules/questions/question-bank/question-bank-listing.test.js dist/modules/questions/create-question/objective-question-form.test.js dist/modules/questions/create-question/question-authoring-form.test.js dist/modules/exams/create-exam/exam-authoring-form.test.js"
   }
 }

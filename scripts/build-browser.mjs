@@ -12,6 +12,10 @@ const browserEntries = [
     entry: resolve("src/browser/question-bank/create.ts"),
     outfile: resolve("dist/browser-bundles/question-bank/create.js"),
   },
+  {
+    entry: resolve("src/browser/exams/create.ts"),
+    outfile: resolve("dist/browser-bundles/exams/create.js"),
+  },
 ];
 
 await Promise.all(

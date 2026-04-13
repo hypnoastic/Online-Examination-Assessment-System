@@ -24,7 +24,7 @@ export const renderQuestionBankShell = ({
       </div>
       <nav class="question-bank-nav">
         <a href="#" class="question-bank-nav__item">Dashboard</a>
-        <a href="#" class="question-bank-nav__item">Exams</a>
+        <a href="../exams/create.html" class="question-bank-nav__item">Exams</a>
         <a href="./index.html" class="question-bank-nav__item is-active" aria-current="page">Question Bank</a>
         <a href="#" class="question-bank-nav__item">Review Queue</a>
         <a href="#" class="question-bank-nav__item">Analytics</a>
