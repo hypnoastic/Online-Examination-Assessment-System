@@ -14,4 +14,13 @@ export type AdminAuditRecord = {
   entity: string;
   entityType: AdminAuditEntityType;
   occurredAt: Date;
+  metadata: Record<string, string>;
+};
+
+export type AdminAuditFilters = {
+  actor?: string;
+  action?: AdminAuditAction | "ALL";
+  entity?: string;
+  startDate?: string;
+  endDate?: string;
 };
