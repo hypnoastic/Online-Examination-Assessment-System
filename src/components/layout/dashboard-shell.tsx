@@ -1,6 +1,10 @@
+"use client";
+
 import type { Session } from "next-auth";
 import type { ReactNode } from "react";
+import { useId } from "react";
 
+import { DashboardShellToggle } from "@/components/layout/dashboard-shell-toggle";
 import { DashboardSidebarNav } from "@/components/layout/dashboard-sidebar-nav";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { PageContainer } from "@/components/ui/shell-primitives";
@@ -17,9 +21,11 @@ export function DashboardShell({
   headerUtility,
   children,
 }: DashboardShellProps) {
+  const navigationId = useId();
+
   if (!user) {
     return (
-      <main className="dashboard-shell__content">
+      <main className="dashboard-shell__content" id="app-main-content" tabIndex={-1}>
         <PageContainer className="dashboard-shell__content-container" width="wide">
           <div className="dashboard-shell__canvas">{children}</div>
         </PageContainer>
@@ -31,7 +37,7 @@ export function DashboardShell({
 
   return (
     <div className="dashboard-shell">
-      <aside className="dashboard-shell__sidebar">
+      <aside className="dashboard-shell__sidebar dashboard-shell__sidebar--desktop">
         <div className="dashboard-shell__sidebar-frame">
           <div className="dashboard-shell__brand">
             <p className="shell-eyebrow shell-eyebrow--inverse">
@@ -51,14 +57,17 @@ export function DashboardShell({
             </div>
           </div>
 
-          <DashboardSidebarNav role={user.role} />
+          <DashboardSidebarNav id={navigationId} role={user.role} />
         </div>
       </aside>
 
-      <main className="dashboard-shell__content">
+      <main className="dashboard-shell__content" id="app-main-content" tabIndex={-1}>
         <PageContainer className="dashboard-shell__content-container" width="wide">
           <header className="dashboard-shell__topbar">
-            <DashboardTopbar role={user.role} />
+            <div className="dashboard-shell__topbar-main">
+              <DashboardShellToggle user={user} />
+              <DashboardTopbar role={user.role} />
+            </div>
             {headerUtility ? (
               <div className="dashboard-shell__utility">{headerUtility}</div>
             ) : null}

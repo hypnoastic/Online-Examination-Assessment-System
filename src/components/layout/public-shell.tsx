@@ -24,7 +24,12 @@ export function PublicShell({ children }: PublicShellProps) {
             </Link>
           </nav>
         </header>
-        <ContentCanvas as="main" className="public-shell__main">
+        <ContentCanvas
+          as="main"
+          className="public-shell__main"
+          id="app-main-content"
+          tabIndex={-1}
+        >
           {children}
         </ContentCanvas>
       </PageContainer>

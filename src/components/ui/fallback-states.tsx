@@ -33,7 +33,7 @@ function StateLayout({
 }) {
   if (layout === "page") {
     return (
-      <main className="state-page">
+      <main className="state-page" id="app-main-content" tabIndex={-1}>
         <PageContainer className="state-page__container" width="wide">
           {children}
         </PageContainer>

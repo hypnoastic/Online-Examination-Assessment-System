@@ -62,7 +62,9 @@ export function AuthShell({ children }: AuthShellProps) {
               ))}
             </div>
           </SurfaceCard>
-          <main className="auth-shell__main">{children}</main>
+          <main className="auth-shell__main" id="app-main-content" tabIndex={-1}>
+            {children}
+          </main>
         </ContentCanvas>
       </PageContainer>
     </div>

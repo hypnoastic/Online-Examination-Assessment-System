@@ -1,16 +1,4 @@
-import type { ReactNode } from "react";
-
+import { createRoleDashboardLayout } from "@/components/layout/create-role-dashboard-layout";
 import { routes } from "@/lib/routes";
-import { requireRole } from "@/lib/auth/rbac";
 
-type AdminDashboardLayoutProps = {
-  children: ReactNode;
-};
-
-export default async function AdminDashboardLayout({
-  children,
-}: AdminDashboardLayoutProps) {
-  await requireRole("ADMIN", routes.adminDashboard);
-
-  return children;
-}
+export default createRoleDashboardLayout("ADMIN", routes.adminDashboard);

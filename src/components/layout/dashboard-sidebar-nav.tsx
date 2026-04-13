@@ -9,14 +9,19 @@ import type { AppRole } from "@/modules/auth/types";
 
 type DashboardSidebarNavProps = {
   role: AppRole;
+  id?: string;
 };
 
-export function DashboardSidebarNav({ role }: DashboardSidebarNavProps) {
+export function DashboardSidebarNav({ role, id }: DashboardSidebarNavProps) {
   const pathname = usePathname();
   const navigation = getDashboardNavigation(role);
 
   return (
-    <nav className="dashboard-nav" aria-label={`${navigation.roleLabel} navigation`}>
+    <nav
+      aria-label={`${navigation.roleLabel} navigation`}
+      className="dashboard-nav"
+      id={id}
+    >
       {navigation.sections.map((section) => (
         <div key={section.label} className="dashboard-nav__section">
           <p className="dashboard-nav__section-label">{section.label}</p>

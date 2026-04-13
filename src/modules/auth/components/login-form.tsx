@@ -35,6 +35,11 @@ export function LoginForm() {
           type="email"
           placeholder="faculty@college.edu"
           autoComplete="email"
+          autoCapitalize="none"
+          autoCorrect="off"
+          inputMode="email"
+          required
+          spellCheck={false}
           defaultValue={state.fields?.email ?? ""}
           aria-invalid={Boolean(state.fieldErrors?.email)}
           aria-describedby={state.fieldErrors?.email ? "email-error" : undefined}
@@ -54,6 +59,7 @@ export function LoginForm() {
           type="password"
           placeholder="Enter your password"
           autoComplete="current-password"
+          required
           aria-invalid={Boolean(state.fieldErrors?.password)}
           aria-describedby={state.fieldErrors?.password ? "password-error" : undefined}
         />

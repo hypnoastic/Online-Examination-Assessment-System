@@ -29,7 +29,8 @@ const monoFont = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "Online Examination Assessment System",
-  description: "Route skeleton and shared application entry structure.",
+  description:
+    "Role-aware online examination platform foundation with shared auth, navigation, and dashboard shell patterns.",
 };
 
 type RootLayoutProps = {
@@ -42,6 +43,9 @@ export default function RootLayout({ children }: RootLayoutProps) {
       <body
         className={`${headingFont.variable} ${bodyFont.variable} ${monoFont.variable}`}
       >
+        <a className="skip-link" href="#app-main-content">
+          Skip to main content
+        </a>
         <div className="app-root">{children}</div>
       </body>
     </html>
